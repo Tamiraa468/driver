@@ -1,8 +1,9 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Text } from "react-native";
+import { House, Package, ShoppingBag, User } from "lucide-react-native";
 
+import { Colors } from "../constants/design";
 import {
   HomeScreen,
   ShopDetailScreen,
@@ -48,15 +49,15 @@ const CustomerTabs: React.FC = () => {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: "#fff",
+          backgroundColor: Colors.surface,
           borderTopWidth: 1,
-          borderTopColor: "#e0e0e0",
+          borderTopColor: Colors.border,
           paddingBottom: 8,
           paddingTop: 8,
           height: 70,
         },
-        tabBarActiveTintColor: "#007AFF",
-        tabBarInactiveTintColor: "#8e8e93",
+        tabBarActiveTintColor: Colors.text,
+        tabBarInactiveTintColor: Colors.textMuted,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: "500",
@@ -68,7 +69,9 @@ const CustomerTabs: React.FC = () => {
         component={HomeStackNavigator}
         options={{
           tabBarLabel: "Нүүр",
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>🏠</Text>,
+          tabBarIcon: ({ color }) => (
+            <House size={20} color={color} strokeWidth={2} />
+          ),
         }}
       />
       <Tab.Screen
@@ -76,7 +79,9 @@ const CustomerTabs: React.FC = () => {
         component={CartScreen}
         options={{
           tabBarLabel: "Сагс",
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>🛒</Text>,
+          tabBarIcon: ({ color }) => (
+            <ShoppingBag size={20} color={color} strokeWidth={2} />
+          ),
         }}
       />
       <Tab.Screen
@@ -84,7 +89,9 @@ const CustomerTabs: React.FC = () => {
         component={OrdersScreen}
         options={{
           tabBarLabel: "Захиалга",
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>📦</Text>,
+          tabBarIcon: ({ color }) => (
+            <Package size={20} color={color} strokeWidth={2} />
+          ),
         }}
       />
       <Tab.Screen
@@ -92,7 +99,9 @@ const CustomerTabs: React.FC = () => {
         component={ProfileScreen}
         options={{
           tabBarLabel: "Профайл",
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>👤</Text>,
+          tabBarIcon: ({ color }) => (
+            <User size={20} color={color} strokeWidth={2} />
+          ),
         }}
       />
     </Tab.Navigator>

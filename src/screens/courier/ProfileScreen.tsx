@@ -1,479 +1,387 @@
-import React, { useState } from "react";
+import {
+  AlertCircle,
+  ChevronRight,
+  Headphones,
+  Info,
+  Lightbulb,
+  LogOut,
+  ShieldCheck,
+  Star,
+  Truck,
+} from "lucide-react-native";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
-  SafeAreaView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { CourierProfile } from "../../types/order";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  Card,
+  HeroPanel,
+  PrimaryButton,
+  ScreenHeader,
+  SectionTitle,
+  SummaryCard,
+} from "../../components/ui";
+import {
+  Colors,
+  FontSize,
+  FontWeight,
+  Layout,
+  Radius,
+  Spacing,
+} from "../../constants/design";
+import { supabase } from "../../config/supabaseClient";
+import { useCourierAuth } from "../../context/CourierAuthContext";
 
-const MOCK_PROFILE: CourierProfile = {
-  id: "COURIER-001",
-  name: "Alexander Johnson",
-  phone: "+976 9999 8888",
-  vehicleType: "bike",
-  rating: 4.8,
-  totalDeliveries: 142,
-  isOnline: false,
+type LucideIcon = React.ComponentType<{
+  size?: number;
+  color?: string;
+  strokeWidth?: number;
+}>;
+
+interface SummaryItem {
+  key: string;
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  hint: string;
+  tone: "primary" | "success" | "warning" | "neutral";
+}
+
+interface MenuItem {
+  key: string;
+  icon: LucideIcon;
+  label: string;
+  description: string;
+}
+
+const PROFILE_FALLBACK = {
+  vehicle: "Суудлын автомашин",
+  score: 1250,
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  approved: "Баталгаажсан",
+  kyc_submitted: "Хяналт хүлээж байна",
+  pending: "Хүлээгдэж байна",
+  blocked: "Блоклогдсон",
+};
+
+const MENU_ITEMS: MenuItem[] = [
+  {
+    key: "support",
+    icon: Headphones,
+    label: "Тусламж",
+    description: "Хүргэлтийн асуудал гарвал тусламж аваарай.",
+  },
+  {
+    key: "tips",
+    icon: Lightbulb,
+    label: "Аппын зөвлөгөө",
+    description: "Курьерын ажлын урсгалын товч зааврыг үзнэ үү.",
+  },
+  {
+    key: "account",
+    icon: Info,
+    label: "Бүртгэлийн төлөв",
+    description: "Баталгаажуулалт болон бүртгэлийн мэдээллээ шалгана уу.",
+  },
+];
+
 const ProfileScreen: React.FC = () => {
-  const [profile] = useState<CourierProfile>(MOCK_PROFILE);
+  const { signOut, user } = useCourierAuth();
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [totalDeliveries, setTotalDeliveries] = useState<string>("—");
+  const [phone, setPhone] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      const [profileRes, tasksRes] = await Promise.all([
+        supabase.from("profiles").select("phone, status").eq("id", user.id).single(),
+        supabase
+          .from("delivery_tasks")
+          .select("*", { count: "exact", head: true })
+          .eq("courier_id", user.id)
+          .eq("status", "delivered"),
+      ]);
+
+      if (cancelled) {
+        return;
+      }
+
+      if (profileRes.data?.phone) {
+        setPhone(profileRes.data.phone as string);
+      }
+
+      setTotalDeliveries(String(tasksRes.count ?? 0));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  const summaryItems = useMemo<SummaryItem[]>(
+    () => [
+      {
+        key: "deliveries",
+        icon: Truck,
+        label: "Дууссан хүргэлт",
+        value: totalDeliveries,
+        hint: "Хүргэгдсэн бүх даалгавар",
+        tone: "primary",
+      },
+      {
+        key: "score",
+        icon: Star,
+        label: "Курьерын оноо",
+        value: PROFILE_FALLBACK.score.toLocaleString(),
+        hint: "Одоогийн дотоод оноо",
+        tone: "neutral",
+      },
+      {
+        key: "insurance",
+        icon: ShieldCheck,
+        label: "Даатгал",
+        value: "Идэвхтэй",
+        hint: "Курьерын хамгаалалтын төлөв",
+        tone: "success",
+      },
+      {
+        key: "status",
+        icon: AlertCircle,
+        label: "Бүртгэлийн төлөв",
+        value: STATUS_LABELS[user?.status ?? ""] ?? "Тодорхойгүй",
+        hint: "Баталгаажуулалт ба хандалт",
+        tone: user?.status === "blocked" ? "warning" : "neutral",
+      },
+    ],
+    [totalDeliveries, user?.status],
+  );
+
+  const initials = user?.full_name
+    ? user.full_name
+        .split(" ")
+        .map((word) => word[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "?";
+
+  const doLogout = async () => {
+    try {
+      setLoggingOut(true);
+      await signOut();
+    } catch {
+      Alert.alert("Алдаа", "Гарахад алдаа гарлаа. Дахин оролдоно уу.");
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      {
-        text: "Cancel",
-        onPress: () => {},
-        style: "cancel",
-      },
-      {
-        text: "Logout",
-        onPress: () => {
-          console.log("User logged out");
-          alert("Logged out successfully!");
-        },
-        style: "destructive",
-      },
+    if (Platform.OS === "web") {
+      if (window.confirm("Та гарахдаа итгэлтэй байна уу?")) {
+        void doLogout();
+      }
+      return;
+    }
+
+    Alert.alert("Гарах", "Та гарахдаа итгэлтэй байна уу?", [
+      { text: "Үгүй", style: "cancel" },
+      { text: "Гарах", style: "destructive", onPress: () => void doLogout() },
     ]);
   };
 
-  const handleEditProfile = () => {
-    alert("Edit profile feature coming soon");
-  };
-
-  const getVehicleEmoji = (type: string) => {
-    const emojis: Record<string, string> = {
-      bike: "🚴",
-      scooter: "🛴",
-      car: "🚗",
-    };
-    return emojis[type] || "🚴";
-  };
-
-  const getVehicleLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      bike: "Bicycle",
-      scooter: "Scooter",
-      car: "Car",
-    };
-    return labels[type] || "Bicycle";
+  const handleMenuPress = (item: MenuItem) => {
+    Alert.alert(item.label, item.description);
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safe}>
+      <ScreenHeader
+        title="Профайл"
+        subtitle="Бүртгэл, курьерын үзүүлэлт болон тусламжийн товчлолууд"
+      />
+
       <ScrollView
-        style={styles.container}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.content}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
-        </View>
-
-        {/* Profile Card */}
-        <View style={styles.profileCard}>
-          {/* Avatar */}
-          <View style={styles.avatarContainer}>
+        <HeroPanel
+          accessory={
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {profile.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")}
-              </Text>
+              <Text style={styles.avatarText}>{initials}</Text>
             </View>
-            <TouchableOpacity style={styles.editAvatarButton}>
-              <Text style={styles.editAvatarButtonText}>✏️</Text>
-            </TouchableOpacity>
-          </View>
+          }
+          badgeLabel={STATUS_LABELS[user?.status ?? ""] ?? "Тодорхойгүй"}
+          badgeTone={
+            user?.status === "approved"
+              ? "success"
+              : user?.status === "blocked"
+                ? "danger"
+                : "default"
+          }
+          description={`${phone ?? "Утасны дугааргүй"} • ${PROFILE_FALLBACK.vehicle}`}
+          eyebrow="Курьерын бүртгэл"
+          metrics={[
+            { label: "Дууссан", value: totalDeliveries },
+            {
+              label: "Оноо",
+              value: PROFILE_FALLBACK.score.toLocaleString(),
+            },
+            { label: "Даатгал", value: "Идэвхтэй" },
+          ]}
+          style={styles.heroPanel}
+          title={user?.full_name || "Курьер"}
+        />
 
-          {/* Basic Info */}
-          <Text style={styles.profileName}>{profile.name}</Text>
-          <Text style={styles.profilePhone}>{profile.phone}</Text>
-
-          {/* Rating */}
-          <View style={styles.ratingContainer}>
-            <View style={styles.ratingStars}>
-              {[...Array(5)].map((_, i) => (
-                <Text
-                  key={i}
-                  style={[
-                    styles.star,
-                    i < Math.floor(profile.rating) && styles.starFilled,
-                    i === Math.floor(profile.rating) &&
-                      profile.rating % 1 > 0 &&
-                      styles.starHalf,
-                  ]}
-                >
-                  ★
-                </Text>
-              ))}
-            </View>
-            <Text style={styles.ratingValue}>{profile.rating.toFixed(1)}</Text>
-          </View>
-
-          {/* Stats */}
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Total Deliveries</Text>
-              <Text style={styles.statValue}>{profile.totalDeliveries}</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Vehicle Type</Text>
-              <Text style={styles.statValue}>
-                {getVehicleEmoji(profile.vehicleType)}
-              </Text>
-            </View>
-          </View>
-
-          {/* Edit Button */}
-          <TouchableOpacity
-            style={styles.editProfileButton}
-            onPress={handleEditProfile}
-          >
-            <Text style={styles.editProfileButtonText}>✏️ Edit Profile</Text>
-          </TouchableOpacity>
+        <SectionTitle title="Үзүүлэлт" />
+        <View style={styles.summaryGrid}>
+          {summaryItems.map((item) => (
+            <SummaryCard
+              key={item.key}
+              hint={item.hint}
+              icon={item.icon}
+              label={item.label}
+              style={styles.summaryCard}
+              tone={item.tone}
+              value={item.value}
+            />
+          ))}
         </View>
 
-        {/* Profile Details */}
-        <View style={styles.detailsSection}>
-          <Text style={styles.sectionTitle}>Profile Information</Text>
+        <SectionTitle title="Бүртгэлийн товчлол" />
+        <Card>
+          {MENU_ITEMS.map((item, index) => {
+            const Icon = item.icon;
 
-          <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>Full Name</Text>
-            <Text style={styles.detailValue}>{profile.name}</Text>
-          </View>
+            return (
+              <TouchableOpacity
+                key={item.key}
+                activeOpacity={0.78}
+                onPress={() => handleMenuPress(item)}
+                style={[
+                  styles.menuRow,
+                  index < MENU_ITEMS.length - 1 ? styles.menuDivider : null,
+                ]}
+              >
+                <View style={styles.menuIcon}>
+                  <Icon size={18} color={Colors.primaryDark} strokeWidth={2} />
+                </View>
+                <View style={styles.menuTextWrap}>
+                  <Text style={styles.menuLabel}>{item.label}</Text>
+                  <Text style={styles.menuDescription}>{item.description}</Text>
+                </View>
+                <ChevronRight
+                  size={18}
+                  color={Colors.textMuted}
+                  strokeWidth={2}
+                />
+              </TouchableOpacity>
+            );
+          })}
+        </Card>
 
-          <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>Phone Number</Text>
-            <Text style={styles.detailValue}>{profile.phone}</Text>
-          </View>
-
-          <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>Vehicle Type</Text>
-            <Text style={styles.detailValue}>
-              {getVehicleLabel(profile.vehicleType)}
-            </Text>
-          </View>
-
-          <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>Courier ID</Text>
-            <Text style={styles.detailValue}>{profile.id}</Text>
-          </View>
-        </View>
-
-        {/* Account Section */}
-        <View style={styles.accountSection}>
-          <Text style={styles.sectionTitle}>Account Settings</Text>
-
-          <TouchableOpacity style={styles.accountOption}>
-            <Text style={styles.accountOptionLabel}>🔐 Change Password</Text>
-            <Text style={styles.accountOptionArrow}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.accountOption}>
-            <Text style={styles.accountOptionLabel}>🔔 Notifications</Text>
-            <Text style={styles.accountOptionArrow}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.accountOption}>
-            <Text style={styles.accountOptionLabel}>⚙️ Preferences</Text>
-            <Text style={styles.accountOptionArrow}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.accountOption}>
-            <Text style={styles.accountOptionLabel}>💬 Help & Support</Text>
-            <Text style={styles.accountOptionArrow}>›</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Stats Summary */}
-        <View style={styles.statsSection}>
-          <Text style={styles.sectionTitle}>Performance</Text>
-
-          <View style={styles.statGroup}>
-            <View style={styles.statGroupItem}>
-              <Text style={styles.statGroupLabel}>Acceptance Rate</Text>
-              <Text style={styles.statGroupValue}>92%</Text>
-            </View>
-            <View style={styles.statGroupItem}>
-              <Text style={styles.statGroupLabel}>On-Time Rate</Text>
-              <Text style={styles.statGroupValue}>98%</Text>
-            </View>
-            <View style={styles.statGroupItem}>
-              <Text style={styles.statGroupLabel}>Cancellation Rate</Text>
-              <Text style={styles.statGroupValue}>2%</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>🚪 Logout</Text>
-        </TouchableOpacity>
-
-        {/* Version Info */}
-        <View style={styles.versionInfo}>
-          <Text style={styles.versionText}>App Version 1.0.0</Text>
-        </View>
+        <PrimaryButton
+          title={loggingOut ? "Гарч байна..." : "Гарах"}
+          onPress={handleLogout}
+          disabled={loggingOut}
+          style={styles.logoutButton}
+          variant="outline"
+          icon={<LogOut size={18} color={Colors.text} strokeWidth={2} />}
+        />
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  safe: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: Colors.background,
   },
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
+  content: {
+    paddingHorizontal: Layout.screenPadding,
+    paddingBottom: Spacing.xxl,
   },
-  scrollContent: {
-    paddingBottom: 24,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#1a1a1a",
-  },
-  profileCard: {
-    marginHorizontal: 16,
-    marginVertical: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 24,
-    backgroundColor: "#f0f7ff",
-    borderRadius: 16,
-    alignItems: "center",
-    borderLeftWidth: 4,
-    borderLeftColor: "#0066cc",
-  },
-  avatarContainer: {
-    position: "relative",
-    marginBottom: 16,
+  heroPanel: {
+    marginBottom: Spacing.lg,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#0066cc",
+    width: 64,
+    height: 64,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.accent,
+    borderWidth: 1,
+    borderColor: Colors.accent,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 3,
-    borderColor: "#fff",
   },
   avatarText: {
-    color: "#fff",
-    fontSize: 32,
-    fontWeight: "700",
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.bold,
+    color: Colors.white,
   },
-  editAvatarButton: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#28a745",
+  summaryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginBottom: Spacing.lg,
+  },
+  summaryCard: {
+    width: "48.2%",
+    marginBottom: Spacing.sm + 4,
+  },
+  menuRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.sm + 4,
+  },
+  menuDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  menuIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primarySoft,
+    borderWidth: 1,
+    borderColor: Colors.primarySoftStrong,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#fff",
+    marginRight: Spacing.sm + 4,
   },
-  editAvatarButtonText: {
-    fontSize: 14,
-  },
-  profileName: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#1a1a1a",
-    marginBottom: 4,
-  },
-  profilePhone: {
-    fontSize: 13,
-    color: "#666",
-    marginBottom: 12,
-  },
-  ratingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 16,
-  },
-  ratingStars: {
-    flexDirection: "row",
-    gap: 2,
-  },
-  star: {
-    fontSize: 16,
-    color: "#ddd",
-  },
-  starFilled: {
-    color: "#ffc107",
-  },
-  starHalf: {
-    color: "#ffc107",
-  },
-  ratingValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#1a1a1a",
-  },
-  statsRow: {
-    flexDirection: "row",
-    width: "100%",
-    alignItems: "center",
-    marginBottom: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#d0e8ff",
-  },
-  statItem: {
+  menuTextWrap: {
     flex: 1,
-    alignItems: "center",
+    marginRight: Spacing.sm,
   },
-  statLabel: {
-    fontSize: 11,
-    color: "#666",
-    marginBottom: 4,
+  menuLabel: {
+    fontSize: FontSize.base,
+    fontWeight: FontWeight.semibold,
+    color: Colors.text,
+    marginBottom: 2,
   },
-  statValue: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#0066cc",
-  },
-  statDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: "#d0e8ff",
-  },
-  editProfileButton: {
-    width: "100%",
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: "#0066cc",
-    alignItems: "center",
-  },
-  editProfileButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  detailsSection: {
-    marginHorizontal: 16,
-    marginVertical: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#1a1a1a",
-    marginBottom: 12,
-  },
-  detailItem: {
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-  },
-  detailLabel: {
-    fontSize: 12,
-    color: "#666",
-    marginBottom: 4,
-  },
-  detailValue: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: "#1a1a1a",
-  },
-  accountSection: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    paddingHorizontal: 0,
-  },
-  accountOption: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  accountOptionLabel: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: "#1a1a1a",
-  },
-  accountOptionArrow: {
-    fontSize: 18,
-    color: "#ccc",
-  },
-  statsSection: {
-    marginHorizontal: 16,
-    marginVertical: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: "#f0fdf4",
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: "#10b981",
-  },
-  statGroup: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  statGroupItem: {
-    alignItems: "center",
-  },
-  statGroupLabel: {
-    fontSize: 11,
-    color: "#666",
-    marginBottom: 6,
-  },
-  statGroupValue: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#10b981",
+  menuDescription: {
+    fontSize: FontSize.sm,
+    color: Colors.textSoft,
+    lineHeight: 20,
   },
   logoutButton: {
-    marginHorizontal: 16,
-    marginVertical: 16,
-    paddingVertical: 14,
-    borderRadius: 8,
-    backgroundColor: "#fff5f5",
-    alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: "#f08080",
-  },
-  logoutButtonText: {
-    color: "#dc3545",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  versionInfo: {
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-  versionText: {
-    fontSize: 12,
-    color: "#999",
+    marginTop: Spacing.lg,
   },
 });
 

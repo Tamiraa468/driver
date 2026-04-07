@@ -19,6 +19,7 @@ import {
   AuthErrorCode,
   AuthResult,
   CourierAccessStatus,
+  KYCSubmitData,
   ProfileUpdateData,
   SignInData,
   SignUpData,
@@ -75,24 +76,32 @@ function mapSupabaseError(error: Error): AuthError {
   const errorMap: Record<string, { code: AuthErrorCode; message: string }> = {
     "invalid login credentials": {
       code: "INVALID_CREDENTIALS",
-      message: "Invalid email or password. Please try again.",
+      message: "И-мэйл эсвэл нууц үг буруу байна. Дахин оролдоно уу.",
     },
     invalid_credentials: {
       code: "INVALID_CREDENTIALS",
-      message: "Invalid email or password. Please try again.",
+      message: "И-мэйл эсвэл нууц үг буруу байна. Дахин оролдоно уу.",
     },
     "email not confirmed": {
       code: "EMAIL_NOT_CONFIRMED",
-      message: "Please confirm your email address before signing in.",
+      message: "Нэвтрэхээсээ өмнө и-мэйл хаягаа баталгаажуулна уу.",
     },
     "user not found": {
       code: "USER_NOT_FOUND",
-      message: "No account found with this email.",
+      message: "Энэ и-мэйлтэй бүртгэл олдсонгүй.",
     },
     "database error saving new user": {
       code: "UNKNOWN_ERROR",
       message:
-        "Signup is currently blocked by a server database trigger error. Please contact support/admin.",
+        "Серверийн өгөгдлийн сангийн алдаанаас болж бүртгэл үүсгэх боломжгүй байна. Админ эсвэл дэмжлэгтэй холбогдоно уу.",
+    },
+    "refresh token not found": {
+      code: "UNKNOWN_ERROR",
+      message: "Сешн хугацаа дууссан байна. Дахин нэвтэрнэ үү.",
+    },
+    "invalid refresh token": {
+      code: "UNKNOWN_ERROR",
+      message: "Сешн хугацаа дууссан байна. Дахин нэвтэрнэ үү.",
     },
   };
 
@@ -107,7 +116,7 @@ function mapSupabaseError(error: Error): AuthError {
   if (message.includes("network") || message.includes("fetch")) {
     return createAuthError(
       "NETWORK_ERROR",
-      "Network error. Please check your connection.",
+      "Сүлжээний алдаа гарлаа. Холболтоо шалгана уу.",
       error,
     );
   }
@@ -178,6 +187,7 @@ function normalizeProfile(
     id: profile.id,
     email: profile.email || authEmail,
     full_name: profile.full_name ?? null,
+    phone: profile.phone ?? null,
     role,
     status: profile.status ?? resolveStatus(role),
     avatar_url: profile.avatar_url ?? null,
@@ -255,7 +265,7 @@ async function upsertProfile(
 
   return {
     profile: null,
-    error: "Profile write failed after multiple schema compatibility retries.",
+    error: "Профайл хадгалах оролдлого хэд хэдэн удаа амжилтгүй боллоо.",
   };
 }
 
@@ -329,7 +339,7 @@ async function ensureProfileForUser(
     };
   }
 
-  return { profile: null, error: upsertError || "Profile not found." };
+  return { profile: null, error: upsertError || "Профайл олдсонгүй." };
 }
 
 // ============================================================================
@@ -348,7 +358,7 @@ function determineCourierAccess(
       isCourier: false,
       isApproved: false,
       status: null,
-      message: "Not authenticated",
+      message: "Нэвтрээгүй байна",
     };
   }
 
@@ -359,20 +369,22 @@ function determineCourierAccess(
       isApproved: false,
       status: profile.status,
       message:
-        "This app is for couriers only. Please use the appropriate app for your role.",
+        "Энэ апп зөвхөн курьеруудад зориулсан. Өөрийн эрхэд тохирох аппыг ашиглана уу.",
     };
   }
 
   const statusMessages: Record<UserProfile["status"], string> = {
-    approved: "Welcome! You have full access to delivery tasks.",
+    approved: "Тавтай морил. Та хүргэлтийн даалгавруудад бүрэн хандах эрхтэй боллоо.",
     pending:
-      "Your account is pending approval. You'll be notified once approved.",
-    blocked: "Your account has been suspended. Please contact support.",
+      "Хүргэлт хийж эхлэхээс өмнө таны бүртгэл KYC баталгаажуулалт шаардана.",
+    kyc_submitted:
+      "Таны KYC бичиг баримтууд хяналтад байна. Баталгаажмагц танд мэдэгдэнэ.",
+    blocked: "Таны бүртгэл түдгэлзсэн байна. Дэмжлэгтэй холбогдоно уу.",
   };
 
   const message =
     statusMessages[profile.status] ||
-    "Unknown account status. Please contact support.";
+    "Бүртгэлийн төлөв тодорхойгүй байна. Дэмжлэгтэй холбогдоно уу.";
 
   return {
     isAuthenticated: true,
@@ -430,7 +442,7 @@ async function clearUserData(): Promise<void> {
  * @throws AuthError on failure
  */
 export async function signUpCourier(data: SignUpData): Promise<AuthResult> {
-  const { email, password, full_name } = data;
+  const { email, password, full_name, phone } = data;
 
   try {
     // Create auth user — send "app" not "role".
@@ -442,6 +454,7 @@ export async function signUpCourier(data: SignUpData): Promise<AuthResult> {
         data: {
           app: "courier_app",
           full_name: full_name || "",
+          phone: phone || "",
         },
       },
     });
@@ -453,7 +466,7 @@ export async function signUpCourier(data: SignUpData): Promise<AuthResult> {
     if (!authData.user) {
       throw createAuthError(
         "UNKNOWN_ERROR",
-        "Signup failed. Please try again.",
+        "Бүртгэл үүсгэж чадсангүй. Дахин оролдоно уу.",
       );
     }
 
@@ -465,6 +478,7 @@ export async function signUpCourier(data: SignUpData): Promise<AuthResult> {
         id: authData.user.id,
         email: authEmail,
         full_name: full_name || null,
+        phone: phone || null,
         role: "courier",
         status: "pending",
       },
@@ -485,6 +499,7 @@ export async function signUpCourier(data: SignUpData): Promise<AuthResult> {
       id: authData.user.id,
       email: authEmail,
       full_name: full_name || null,
+      phone: phone || null,
       role: "courier",
       status: "pending",
     };
@@ -559,7 +574,7 @@ export async function signInCourier(data: SignInData): Promise<AuthResult> {
     if (!authData.user) {
       throw createAuthError(
         "UNKNOWN_ERROR",
-        "Sign in failed. Please try again.",
+        "Нэвтрэхэд алдаа гарлаа. Дахин оролдоно уу.",
       );
     }
 
@@ -574,7 +589,7 @@ export async function signInCourier(data: SignInData): Promise<AuthResult> {
       await supabase.auth.signOut();
       throw createAuthError(
         "PROFILE_NOT_FOUND",
-        profileError || "Profile not found. Please contact support.",
+        profileError || "Профайл олдсонгүй. Дэмжлэгтэй холбогдоно уу.",
       );
     }
 
@@ -583,7 +598,7 @@ export async function signInCourier(data: SignInData): Promise<AuthResult> {
       await supabase.auth.signOut();
       throw createAuthError(
         "NOT_A_COURIER",
-        "This app is for couriers only. Please use the appropriate app for your role.",
+        "Энэ апп зөвхөн курьеруудад зориулсан. Өөрийн эрхэд тохирох аппыг ашиглана уу.",
       );
     }
 
@@ -595,7 +610,7 @@ export async function signInCourier(data: SignInData): Promise<AuthResult> {
       await supabase.auth.signOut();
       throw createAuthError(
         "ACCOUNT_BLOCKED",
-        "Your account has been suspended. Please contact support.",
+        "Таны бүртгэл түдгэлзсэн байна. Дэмжлэгтэй холбогдоно уу.",
       );
     }
 
@@ -639,7 +654,24 @@ export async function restoreSession(): Promise<AuthResult | null> {
     // Check for Supabase session
     const {
       data: { session },
+      error: sessionError,
     } = await supabase.auth.getSession();
+
+    // Handle refresh token errors
+    if (sessionError) {
+      const errorMsg = sessionError.message?.toLowerCase() || "";
+      if (
+        errorMsg.includes("refresh") ||
+        errorMsg.includes("invalid") ||
+        errorMsg.includes("expired")
+      ) {
+        console.warn("Invalid/expired session detected. Clearing auth state.");
+        await supabase.auth.signOut();
+        await clearUserData();
+        return null;
+      }
+      throw sessionError;
+    }
 
     if (!session?.user) {
       await clearUserData();
@@ -714,7 +746,23 @@ export async function checkCourierAccess(): Promise<CourierAccessStatus> {
     // Get current session
     const {
       data: { session },
+      error: sessionError,
     } = await supabase.auth.getSession();
+
+    // Handle refresh token errors
+    if (sessionError) {
+      const errorMsg = sessionError.message?.toLowerCase() || "";
+      if (
+        errorMsg.includes("refresh") ||
+        errorMsg.includes("invalid") ||
+        errorMsg.includes("expired")
+      ) {
+        console.warn("Invalid/expired session in checkCourierAccess. Clearing.");
+        await supabase.auth.signOut();
+        await clearUserData();
+        return determineCourierAccess(null);
+      }
+    }
 
     if (!session?.user) {
       return determineCourierAccess(null);
@@ -764,10 +812,10 @@ export async function refreshProfile(): Promise<AuthResult | null> {
 
 /**
  * Updates the courier's profile.
- * SECURITY: Only full_name can be updated by the user.
+ * SECURITY: Only full_name and phone can be updated by the user.
  * Role and status are protected by RLS policies.
  *
- * @param data - Fields to update (full_name only)
+ * @param data - Fields to update (full_name, phone)
  * @returns Updated user profile
  * @throws AuthError on failure
  */
@@ -780,7 +828,7 @@ export async function updateCourierProfile(
     } = await supabase.auth.getSession();
 
     if (!session?.user) {
-      throw createAuthError("USER_NOT_FOUND", "Not authenticated");
+      throw createAuthError("USER_NOT_FOUND", "Нэвтрээгүй байна");
     }
 
     const authEmail = session.user.email || "";
@@ -789,10 +837,13 @@ export async function updateCourierProfile(
       "courier",
     );
 
-    // Only allow updating full_name
+    // Only allow updating full_name and phone
     const safeData: ProfileUpdateData = {};
     if (data.full_name !== undefined) {
       safeData.full_name = data.full_name;
+    }
+    if (data.phone !== undefined) {
+      safeData.phone = data.phone;
     }
 
     const updatePayload: Record<string, unknown> = { ...safeData };
@@ -840,7 +891,7 @@ export async function updateCourierProfile(
           "UNKNOWN_ERROR",
           updateErrorMessage ||
             fetchProfileError?.message ||
-            "Profile update failed",
+            "Профайл шинэчилж чадсангүй",
         );
       }
 
@@ -852,6 +903,93 @@ export async function updateCourierProfile(
     await persistUserData(userProfile, accessStatus);
 
     return userProfile;
+  } catch (error) {
+    if ((error as AuthError).code) {
+      throw error;
+    }
+    throw mapSupabaseError(error as Error);
+  }
+}
+
+// ============================================================================
+// KYC SUBMISSION
+// ============================================================================
+
+/**
+ * Submits KYC (Know Your Customer) documents for verification.
+ *
+ * Flow:
+ * 1. Upload document URLs to courier_kyc table
+ * 2. Update profile status to 'kyc_submitted'
+ * 3. Return updated AuthResult
+ *
+ * @param data - KYC document URLs and vehicle info
+ * @returns AuthResult with updated status
+ * @throws AuthError on failure
+ */
+export async function submitKYC(data: KYCSubmitData): Promise<AuthResult> {
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user) {
+      throw createAuthError("USER_NOT_FOUND", "Нэвтрээгүй байна");
+    }
+
+    const userId = session.user.id;
+    const authEmail = session.user.email || "";
+
+    // 1. Upsert KYC record
+    const { error: kycError } = await supabase.from("courier_kyc").upsert(
+      {
+        courier_id: userId,
+        id_front_url: data.id_front_url,
+        id_back_url: data.id_back_url,
+        vehicle_registration_url: data.vehicle_registration_url || null,
+        selfie_url: data.selfie_url || null,
+        vehicle_type: data.vehicle_type || null,
+        license_plate: data.license_plate || null,
+        status: "pending",
+        submitted_at: new Date().toISOString(),
+      },
+      { onConflict: "courier_id" },
+    );
+
+    if (kycError) {
+      console.error("KYC insert error:", kycError.message);
+      throw createAuthError(
+        "UNKNOWN_ERROR",
+        "KYC бичиг баримт илгээхэд алдаа гарлаа. Дахин оролдоно уу.",
+      );
+    }
+
+    // 2. Update profile status to kyc_submitted
+    const { data: updatedProfile, error: profileError } = await supabase
+      .from("profiles")
+      .update({ status: "kyc_submitted" })
+      .eq("id", userId)
+      .select()
+      .single();
+
+    if (profileError) {
+      console.error("Profile status update error:", profileError.message);
+      throw createAuthError("UNKNOWN_ERROR", "Статус шинэчлэхэд алдаа гарлаа.");
+    }
+
+    const fallbackRole = roleFromMetadata(
+      session.user.user_metadata,
+      "courier",
+    );
+    const userProfile = normalizeProfile(
+      updatedProfile as ProfileRow,
+      authEmail,
+      fallbackRole,
+    );
+    const accessStatus = determineCourierAccess(userProfile);
+    await persistUserData(userProfile, accessStatus);
+
+    return { user: userProfile, accessStatus };
   } catch (error) {
     if ((error as AuthError).code) {
       throw error;
@@ -894,6 +1032,23 @@ export async function updatePassword(newPassword: string): Promise<void> {
   }
 }
 
+/**
+ * Manually clears all authentication state.
+ * Use this as a recovery mechanism when refresh token errors occur.
+ */
+export async function clearAuthState(): Promise<void> {
+  try {
+    console.log("[Auth] Manually clearing auth state...");
+    await supabase.auth.signOut();
+    await clearUserData();
+    console.log("[Auth] Auth state cleared successfully");
+  } catch (error) {
+    console.error("[Auth] Error clearing auth state:", error);
+    // Force clear local storage even if signOut fails
+    await clearUserData();
+  }
+}
+
 // ============================================================================
 // AUTH STATE LISTENER
 // ============================================================================
@@ -911,27 +1066,40 @@ export function onAuthStateChange(
   const {
     data: { subscription },
   } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Handle token refresh errors gracefully
+    if (event === "TOKEN_REFRESHED" && !session) {
+      console.warn("Token refresh failed. Signing out.");
+      await clearUserData();
+      callback("SIGNED_OUT", null);
+      return;
+    }
+
     if (event === "SIGNED_OUT" || !session?.user) {
       await clearUserData();
       callback(event, null);
       return;
     }
 
-    const fallbackRole = roleFromMetadata(
-      session.user.user_metadata,
-      "courier",
-    );
+    try {
+      const fallbackRole = roleFromMetadata(
+        session.user.user_metadata,
+        "courier",
+      );
 
-    const { profile: userProfile } = await ensureProfileForUser(
-      session.user as AuthUserLike,
-      fallbackRole,
-    );
+      const { profile: userProfile } = await ensureProfileForUser(
+        session.user as AuthUserLike,
+        fallbackRole,
+      );
 
-    if (userProfile) {
-      const accessStatus = determineCourierAccess(userProfile);
-      await persistUserData(userProfile, accessStatus);
-      callback(event, userProfile);
-    } else {
+      if (userProfile) {
+        const accessStatus = determineCourierAccess(userProfile);
+        await persistUserData(userProfile, accessStatus);
+        callback(event, userProfile);
+      } else {
+        callback(event, null);
+      }
+    } catch (error) {
+      console.error("Auth state change error:", error);
       callback(event, null);
     }
   });
@@ -951,9 +1119,11 @@ export default {
   checkCourierAccess,
   refreshProfile,
   updateCourierProfile,
+  submitKYC,
   sendPasswordReset,
   updatePassword,
   getCachedUser,
   getCachedAccessStatus,
   onAuthStateChange,
+  clearAuthState,
 };

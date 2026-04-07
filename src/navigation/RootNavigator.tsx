@@ -1,14 +1,18 @@
 import React from "react";
 import {
   ActivityIndicator,
-  View,
+  Platform,
   StyleSheet,
   Text,
-  Platform,
+  View,
 } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import {
+  DefaultTheme,
+  NavigationContainer,
+} from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
+import { Colors } from "../constants/design";
 import { useAuth } from "../context/AuthContext";
 import AuthStack from "./AuthStack";
 import CustomerTabs from "./CustomerTabs";
@@ -24,13 +28,26 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+const navigationTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: Colors.text,
+    background: Colors.background,
+    card: Colors.surface,
+    text: Colors.text,
+    border: Colors.border,
+    notification: Colors.text,
+  },
+};
+
 const RootNavigator: React.FC = () => {
   const { isLoading, isAuthenticated, user } = useAuth();
 
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={Colors.text} />
         <Text style={styles.loadingText}>Ачаалж байна...</Text>
       </View>
     );
@@ -54,12 +71,15 @@ const RootNavigator: React.FC = () => {
   };
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator
         initialRouteName={getInitialRouteName()}
         screenOptions={{
           headerShown: false,
           animation: Platform.OS === "web" ? "none" : "fade",
+          contentStyle: {
+            backgroundColor: Colors.background,
+          },
         }}
       >
         {!isAuthenticated ? (
@@ -87,12 +107,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: Colors.background,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: "#666",
+    color: Colors.textSoft,
   },
 });
 

@@ -1,5 +1,6 @@
 import React from "react";
 import { StyleSheet, Switch, Text, View } from "react-native";
+import { Colors, FontSize, Radius, Spacing } from "../constants/design";
 
 interface StatusToggleProps {
   isOnline: boolean;
@@ -10,7 +11,7 @@ interface StatusToggleProps {
 const StatusToggle: React.FC<StatusToggleProps> = ({
   isOnline,
   onToggle,
-  label = "Status",
+  label = "Төлөв",
 }) => {
   return (
     <View style={styles.container}>
@@ -19,19 +20,28 @@ const StatusToggle: React.FC<StatusToggleProps> = ({
         <View
           style={[
             styles.statusBadge,
-            { backgroundColor: isOnline ? "#28a745" : "#dc3545" },
+            {
+              backgroundColor: isOnline
+                ? Colors.primary
+                : Colors.surfaceAlt,
+            },
           ]}
         >
-          <Text style={styles.statusText}>
-            {isOnline ? "Online" : "Offline"}
+          <Text
+            style={[
+              styles.statusText,
+              isOnline ? styles.statusTextActive : null,
+            ]}
+          >
+            {isOnline ? "Онлайн" : "Оффлайн"}
           </Text>
         </View>
       </View>
       <Switch
         value={isOnline}
         onValueChange={onToggle}
-        trackColor={{ false: "#d0d0d0", true: "#81c784" }}
-        thumbColor={isOnline ? "#28a745" : "#999"}
+        trackColor={{ false: Colors.borderStrong, true: Colors.primarySoftStrong }}
+        thumbColor={isOnline ? Colors.primary : Colors.white}
         style={styles.switch}
       />
     </View>
@@ -43,20 +53,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
-    marginHorizontal: 16,
-    marginVertical: 12,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.cardBg,
+    borderRadius: Radius.card,
+    marginHorizontal: Spacing.md,
+    marginVertical: Spacing.sm + 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   labelContainer: {
     flex: 1,
   },
   label: {
-    fontSize: 16,
+    fontSize: FontSize.base,
     fontWeight: "600",
-    color: "#1a1a1a",
+    color: Colors.text,
     marginBottom: 8,
   },
   statusBadge: {
@@ -64,11 +76,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   statusText: {
-    color: "#fff",
-    fontSize: 12,
+    color: Colors.text,
+    fontSize: FontSize.xs,
     fontWeight: "600",
+  },
+  statusTextActive: {
+    color: Colors.white,
   },
   switch: {
     marginLeft: 16,

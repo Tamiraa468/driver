@@ -1,6 +1,7 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
 import { Platform } from "react-native";
+import { Colors } from "../constants/design";
 import { LoginScreen, RegisterScreen, WelcomeScreen } from "../screens/auth";
 
 export type AuthStackParamList = {
@@ -17,6 +18,9 @@ const AuthStack: React.FC = () => {
       screenOptions={{
         headerShown: false,
         animation: Platform.OS === "web" ? "none" : "slide_from_right",
+        contentStyle: {
+          backgroundColor: Colors.background,
+        },
       }}
     >
       <Stack.Screen name="Welcome" component={WelcomeScreen} />

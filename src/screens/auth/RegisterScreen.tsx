@@ -1,21 +1,35 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Eye, EyeOff, UserPlus } from "lucide-react-native";
 import React, { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { z } from "zod";
+import {
+  Card,
+  FormField,
+  PrimaryButton,
+  ScreenHeader,
+  StatusBadge,
+} from "../../components/ui";
+import {
+  Colors,
+  FontSize,
+  FontWeight,
+  Layout,
+  Radius,
+  Spacing,
+} from "../../constants/design";
 import { useAuth } from "../../context/AuthContext";
 import { UserRole } from "../../types";
 
@@ -42,8 +56,6 @@ type RegisterScreenProps = {
 const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
   const { signUp, isLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-
-  // ✅ Courier-only role (no UI selection)
   const courierRole: UserRole = "courier";
 
   const {
@@ -64,159 +76,134 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
       await signUp({
         email: data.email,
         password: data.password,
-        role: courierRole, // ✅ always courier
+        role: courierRole,
       });
-      // RootNavigator handles redirect after auth
     } catch (error: any) {
       Alert.alert("Алдаа", error?.message || "Бүртгүүлэхэд алдаа гарлаа");
     }
   };
 
+  const passwordToggle = (
+    <TouchableOpacity
+      activeOpacity={0.72}
+      disabled={isLoading}
+      onPress={() => setShowPassword((value) => !value)}
+      style={styles.eyeButton}
+    >
+      {showPassword ? (
+        <EyeOff size={18} color={Colors.textSoft} strokeWidth={2} />
+      ) : (
+        <Eye size={18} color={Colors.textSoft} strokeWidth={2} />
+      )}
+    </TouchableOpacity>
+  );
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardView}
+        style={styles.flex}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.backButton}
-              disabled={isLoading}
-            >
-              <Text style={styles.backButtonText}>←</Text>
-            </TouchableOpacity>
+          <ScreenHeader
+            title="Бүртгүүлэх"
+            subtitle="Шинэ бүртгэл үүсгээд хүргэлтийн ажлын урсгал руу орно."
+            onBackPress={() => navigation.goBack()}
+          />
 
-            <Text style={styles.title}>Courier бүртгэл</Text>
-            <Text style={styles.subtitle}>
-              Хүргэлтийн ажил гүйцэтгэгчээр бүртгүүлэх
+          <Card style={styles.introCard} variant="subtle">
+            <View style={styles.introIcon}>
+              <UserPlus size={24} color={Colors.text} strokeWidth={2} />
+            </View>
+            <Text style={styles.introTitle}>Курьерын бүртгэл</Text>
+            <Text style={styles.introText}>
+              Энэ урсгал нь курьерын профайл үүсгэж, дараагийн баталгаажуулалтын
+              алхам руу шилжинэ.
             </Text>
+            <StatusBadge label="Курьерын эрх" status="info" />
+          </Card>
 
-            {/* Optional badge */}
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>ROLE: COURIER</Text>
-            </View>
-          </View>
-
-          <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>И-мэйл</Text>
-              <Controller
-                control={control}
-                name="email"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={[styles.input, errors.email && styles.inputError]}
-                    placeholder="example@email.com"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                    editable={!isLoading}
-                  />
-                )}
-              />
-              {errors.email && (
-                <Text style={styles.errorText}>{errors.email.message}</Text>
-              )}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Нууц үг</Text>
-              <View style={styles.passwordContainer}>
-                <Controller
-                  control={control}
-                  name="password"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <TextInput
-                      style={[
-                        styles.input,
-                        styles.passwordInput,
-                        errors.password && styles.inputError,
-                      ]}
-                      placeholder="••••••••"
-                      secureTextEntry={!showPassword}
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      value={value}
-                      editable={!isLoading}
-                    />
-                  )}
+          <Card>
+            <Controller
+              control={control}
+              name="email"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <FormField
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  containerStyle={styles.field}
+                  editable={!isLoading}
+                  errorText={errors.email?.message}
+                  keyboardType="email-address"
+                  label="И-мэйл"
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  placeholder="example@email.com"
+                  value={value}
                 />
-                <TouchableOpacity
-                  style={styles.showPasswordButton}
-                  onPress={() => setShowPassword(!showPassword)}
-                  disabled={isLoading}
-                >
-                  <Text style={styles.showPasswordText}>
-                    {showPassword ? "🙈" : "👁️"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              {errors.password && (
-                <Text style={styles.errorText}>{errors.password.message}</Text>
               )}
-            </View>
+            />
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Нууц үг давтах</Text>
-              <Controller
-                control={control}
-                name="confirmPassword"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={[
-                      styles.input,
-                      errors.confirmPassword && styles.inputError,
-                    ]}
-                    placeholder="••••••••"
-                    secureTextEntry={!showPassword}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                    editable={!isLoading}
-                  />
-                )}
-              />
-              {errors.confirmPassword && (
-                <Text style={styles.errorText}>
-                  {errors.confirmPassword.message}
-                </Text>
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <FormField
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  containerStyle={styles.field}
+                  editable={!isLoading}
+                  errorText={errors.password?.message}
+                  label="Нууц үг"
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  placeholder="••••••••"
+                  rightElement={passwordToggle}
+                  secureTextEntry={!showPassword}
+                  value={value}
+                />
               )}
-            </View>
+            />
 
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                isLoading && styles.submitButtonDisabled,
-              ]}
+            <Controller
+              control={control}
+              name="confirmPassword"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <FormField
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  containerStyle={styles.field}
+                  editable={!isLoading}
+                  errorText={errors.confirmPassword?.message}
+                  label="Нууц үг давтах"
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  placeholder="••••••••"
+                  rightElement={passwordToggle}
+                  secureTextEntry={!showPassword}
+                  value={value}
+                />
+              )}
+            />
+
+            <PrimaryButton
+              title="Курьерээр бүртгүүлэх"
               onPress={handleSubmit(onSubmit)}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.submitButtonText}>
-                  Courier-аар бүртгүүлэх
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
+              loading={isLoading}
+            />
+          </Card>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Бүртгэлтэй юу? </Text>
-            <TouchableOpacity
+            <PrimaryButton
+              title="Нэвтрэх"
               onPress={() => navigation.replace("Login")}
-              disabled={isLoading}
-            >
-              <Text style={styles.footerLink}>Нэвтрэх</Text>
-            </TouchableOpacity>
+              variant="ghost"
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -225,65 +212,60 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  keyboardView: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 },
-  header: { marginTop: 20, marginBottom: 30 },
-  backButton: { marginBottom: 20 },
-  backButtonText: { fontSize: 28, color: "#007AFF" },
-  title: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#1a1a1a",
-    marginBottom: 8,
+  safe: {
+    flex: 1,
+    backgroundColor: Colors.background,
   },
-  subtitle: { fontSize: 16, color: "#666" },
-
-  badge: {
-    alignSelf: "flex-start",
-    marginTop: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: "#f0f7ff",
-    borderWidth: 1,
-    borderColor: "#cfe5ff",
+  flex: {
+    flex: 1,
   },
-  badgeText: { color: "#007AFF", fontWeight: "700", fontSize: 12 },
-
-  form: { gap: 20 },
-  inputContainer: { gap: 8 },
-  label: { fontSize: 14, fontWeight: "600", color: "#1a1a1a" },
-
-  input: {
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    backgroundColor: "#f9f9f9",
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: Layout.screenPadding,
+    paddingBottom: Spacing.xxl,
   },
-  inputError: { borderColor: "#ff3b30" },
-  passwordContainer: { position: "relative" },
-  passwordInput: { paddingRight: 50 },
-  showPasswordButton: { position: "absolute", right: 16, top: 14 },
-  showPasswordText: { fontSize: 20 },
-  errorText: { color: "#ff3b30", fontSize: 12 },
-
-  submitButton: {
-    backgroundColor: "#007AFF",
-    paddingVertical: 16,
-    borderRadius: 12,
+  introCard: {
     alignItems: "center",
-    marginTop: 10,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.md,
   },
-  submitButtonDisabled: { opacity: 0.7 },
-  submitButtonText: { color: "#fff", fontSize: 18, fontWeight: "600" },
-
-  footer: { flexDirection: "row", justifyContent: "center", marginTop: 30 },
-  footerText: { color: "#666", fontSize: 14 },
-  footerLink: { color: "#007AFF", fontSize: 14, fontWeight: "600" },
+  introIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+  },
+  introTitle: {
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.bold,
+    color: Colors.text,
+    marginBottom: Spacing.xs + 2,
+  },
+  introText: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.regular,
+    color: Colors.textSoft,
+    lineHeight: 20,
+    textAlign: "center",
+    marginBottom: Spacing.md,
+  },
+  field: {
+    marginBottom: Spacing.md,
+  },
+  eyeButton: {
+    width: 28,
+    height: 28,
+    borderRadius: Radius.full,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  footer: {
+    marginTop: Spacing.lg,
+    alignItems: "center",
+  },
 });
 
 export default RegisterScreen;

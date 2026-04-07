@@ -1,301 +1,355 @@
-import React, { useState } from "react";
+import { useNavigation } from "@react-navigation/native";
 import {
-  SafeAreaView,
-  ScrollView,
+  CircleAlert,
+  Package,
+  Power,
+  RefreshCcw,
+  Truck,
+} from "lucide-react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FlatList,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import StatusToggle from "../../components/StatusToggle";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  Card,
+  HeroPanel,
+  ListItemCard,
+  ScreenHeader,
+  SectionTitle,
+  StateView,
+  SummaryCard,
+} from "../../components/ui";
+import {
+  Colors,
+  FontSize,
+  FontWeight,
+  Layout,
+  Spacing,
+} from "../../constants/design";
+import { fetchAvailableTasks } from "../../services/deliveryTaskService";
+import { AvailableTask } from "../../types/order";
 
-interface DashboardStats {
-  deliveriesToday: number;
-  earningsToday: number;
-  rating: number;
+interface JobPreview {
+  id: string;
+  title: string;
+  price: string;
+  pickup: string;
+  dropoff: string;
+  postedAt: string;
+}
+
+function buildJobPreview(task: AvailableTask): JobPreview {
+  return {
+    id: task.task_id,
+    title:
+      task.receiver_name ||
+      `Хүргэлт #${task.task_id.slice(0, 8).toUpperCase()}`,
+    price: `₮${task.delivery_fee.toLocaleString()}`,
+    pickup: task.pickup_address || task.pickup_note || "Авах цэгийн мэдээлэлгүй",
+    dropoff: task.dropoff_address || task.dropoff_note || "Хүргэх цэгийн мэдээлэлгүй",
+    postedAt: new Date(task.created_at).toLocaleString("mn-MN", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }),
+  };
 }
 
 const HomeScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const [isOnline, setIsOnline] = useState(false);
-  const [stats, setStats] = useState<DashboardStats>({
-    deliveriesToday: 5,
-    earningsToday: 125000,
-    rating: 4.8,
-  });
+  const [tasks, setTasks] = useState<AvailableTask[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock location (would be replaced with actual GPS)
-  const mockLocation = "Sukhbaatar District, Ulaanbaatar";
-
-  const handleToggleOnline = (value: boolean) => {
-    setIsOnline(value);
-    // Here you would trigger API calls to update online status
-    // and potentially start/stop location tracking
-    if (value) {
-      console.log("Courier went online");
-      // Start watching location, connect to real-time order updates
-    } else {
-      console.log("Courier went offline");
-      // Stop watching location, disconnect from order updates
+  const loadTasks = useCallback(async () => {
+    try {
+      setError(null);
+      const data = await fetchAvailableTasks();
+      setTasks(data);
+    } catch (loadError) {
+      console.error("[HomeScreen] Failed to load available tasks:", loadError);
+      setError("Сүүлийн хүргэлтийн боломжуудыг шинэчилж чадсангүй.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    void loadTasks();
+  }, [loadTasks]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadTasks();
+  }, [loadTasks]);
+
+  const jobPreviews = useMemo(() => tasks.map(buildJobPreview), [tasks]);
+  const queueTitle = isOnline
+    ? "Шинэ хүргэлтүүд танд харагдаж байна"
+    : "Ажил авахад бэлэн болмогц онлайн болоорой";
+  const queueDescription =
+    tasks.length > 0
+      ? `Одоо ${tasks.length} нээлттэй хүргэлт хурдан шалгахад бэлэн байна.`
+      : "Одоогоор нээлттэй хүргэлт алга. Доош татаж шинэчлээд шинэ боломжийг шалгана уу.";
+
+  const header = (
+    <View>
+      <ScreenHeader
+        title="Курьерын нүүр"
+        subtitle="Онлайнаар байж, шинэ хүргэлтүүдийг хурдан шалгаад өдрөө цэгцтэй удирдаарай."
+        right={
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setIsOnline((value) => !value)}
+            style={[
+              styles.toggle,
+              isOnline ? styles.toggleActive : styles.toggleInactive,
+            ]}
+          >
+            <Power
+              size={14}
+              color={isOnline ? Colors.white : Colors.textSoft}
+              strokeWidth={2.2}
+            />
+            <Text
+              style={[
+                styles.toggleText,
+                isOnline ? styles.toggleTextActive : null,
+              ]}
+            >
+              {isOnline ? "Онлайн" : "Оффлайн"}
+            </Text>
+          </TouchableOpacity>
+        }
+      />
+
+      <HeroPanel
+        accessory={
+          <View style={styles.heroAccessory}>
+            <Truck size={22} color={Colors.primaryDark} strokeWidth={2.2} />
+          </View>
+        }
+        badgeLabel={isOnline ? "Хүлээн авахад бэлэн" : "Оффлайн горим"}
+        badgeTone={isOnline ? "success" : "default"}
+        description={queueDescription}
+        eyebrow={isOnline ? "Курьер бэлэн" : "Идэвхгүй байна"}
+        metrics={[
+          { label: "Нээлттэй хүргэлт", value: tasks.length.toLocaleString() },
+          { label: "Горим", value: isOnline ? "Онлайн" : "Оффлайн" },
+          { label: "Шинэчлэх", value: "Доош татах" },
+        ]}
+        style={styles.heroPanel}
+        title={queueTitle}
+      />
+
+      <View style={styles.summaryGrid}>
+        <SummaryCard
+          hint="Хэзээ ч өөрчилж болно"
+          icon={Power}
+          label="Ажлын төлөв"
+          style={styles.summaryCard}
+          tone={isOnline ? "success" : "neutral"}
+          value={isOnline ? "Онлайн" : "Оффлайн"}
+        />
+        <SummaryCard
+          hint="Шалгахад бэлэн"
+          icon={Truck}
+          label="Одоо боломжтой"
+          style={styles.summaryCard}
+          tone="primary"
+          value={tasks.length.toLocaleString()}
+        />
+      </View>
+
+      {error ? (
+        <Card style={styles.errorCard} variant="subtle">
+          <View style={styles.errorRow}>
+            <CircleAlert size={16} color={Colors.danger} strokeWidth={2} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        </Card>
+      ) : null}
+
+      <SectionTitle title="Боломжит хүргэлтүүд" />
+    </View>
+  );
+
+  if (loading && !refreshing) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.stateWrap}>
+          <ScreenHeader
+            title="Курьерын нүүр"
+            subtitle="Онлайнаар байж, шинэ хүргэлтүүдийг хурдан шалгаад өдрөө цэгцтэй удирдаарай."
+          />
+          <StateView
+            loading
+            title="Боломжит хүргэлтүүдийг ачааллаж байна..."
+            description="Таны нүүр дэлгэцийн хүргэлтийн дарааллыг шинэчилж байна."
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error && tasks.length === 0) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.stateWrap}>
+          <ScreenHeader
+            title="Курьерын нүүр"
+            subtitle="Онлайнаар байж, шинэ хүргэлтүүдийг хурдан шалгаад өдрөө цэгцтэй удирдаарай."
+          />
+          <StateView
+            icon={<RefreshCcw size={22} color={Colors.danger} strokeWidth={2} />}
+            title="Нүүр дэлгэцийн мэдээллийг ачаалж чадсангүй"
+            description="Боломжит хүргэлтүүдийг дахин шинэчилж үзнэ үү."
+            actionLabel="Дахин оролдох"
+            onActionPress={() => {
+              setLoading(true);
+              void loadTasks();
+            }}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        style={styles.container}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Dashboard</Text>
-          <Text style={styles.subtitle}>Welcome back, Courier</Text>
-        </View>
-
-        {/* Online Status Toggle */}
-        <StatusToggle
-          isOnline={isOnline}
-          onToggle={handleToggleOnline}
-          label="Your Status"
-        />
-
-        {/* Current Location */}
-        <View style={styles.locationCard}>
-          <Text style={styles.locationTitle}>📍 Your Location</Text>
-          <Text style={styles.locationText}>{mockLocation}</Text>
-          <TouchableOpacity style={styles.updateLocationButton}>
-            <Text style={styles.updateLocationButtonText}>Update Location</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View style={[styles.statCard, styles.statCardDeliveries]}>
-            <Text style={styles.statLabel}>Deliveries Today</Text>
-            <Text style={styles.statValue}>{stats.deliveriesToday}</Text>
-            <Text style={styles.statSubtext}>In progress & completed</Text>
-          </View>
-
-          <View style={[styles.statCard, styles.statCardEarnings]}>
-            <Text style={styles.statLabel}>Earnings Today</Text>
-            <Text style={styles.statValue}>₮{stats.earningsToday}</Text>
-            <Text style={styles.statSubtext}>Total commission</Text>
-          </View>
-
-          <View style={[styles.statCard, styles.statCardRating]}>
-            <Text style={styles.statLabel}>Your Rating</Text>
-            <Text style={styles.statValue}>{stats.rating.toFixed(1)} ⭐</Text>
-            <Text style={styles.statSubtext}>Based on reviews</Text>
-          </View>
-        </View>
-
-        {/* Primary CTA */}
-        {isOnline ? (
-          <TouchableOpacity
-            style={[styles.primaryButton, styles.primaryButtonActive]}
-            disabled={false}
-          >
-            <Text style={styles.primaryButtonText}>🔍 Find Orders</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.offlineMessage}>
-            <Text style={styles.offlineMessageText}>
-              Go online to start accepting orders
-            </Text>
-          </View>
+    <SafeAreaView style={styles.safe}>
+      <FlatList
+        data={jobPreviews}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <ListItemCard
+            amountText={item.price}
+            amountTone="primary"
+            badgeLabel="Нээлттэй"
+            badgeTone="info"
+            leading={<Package size={18} color={Colors.primary} strokeWidth={2} />}
+            onPress={() =>
+              navigation.navigate("DeliveryDetails", { taskId: item.id })
+            }
+            style={styles.taskCard}
+            subtitle={`Нийтлэгдсэн: ${item.postedAt}`}
+            title={item.title}
+            rows={[
+              { label: "Авах цэг", value: item.pickup },
+              { label: "Хүргэх цэг", value: item.dropoff },
+            ]}
+          />
         )}
-
-        {/* Quick Info */}
-        <View style={styles.infoSection}>
-          <Text style={styles.infoTitle}>Tips for Success</Text>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoBullet}>✓</Text>
-            <Text style={styles.infoText}>
-              Keep your profile updated with accurate info
-            </Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoBullet}>✓</Text>
-            <Text style={styles.infoText}>
-              Maintain high rating for more orders
-            </Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoBullet}>✓</Text>
-            <Text style={styles.infoText}>
-              Keep your phone charged and location enabled
-            </Text>
-          </View>
-        </View>
-      </ScrollView>
+        ListHeaderComponent={header}
+        ListEmptyComponent={
+          <StateView
+            icon={<Package size={24} color={Colors.primary} strokeWidth={2} />}
+            title="Нээлттэй хүргэлт алга"
+            description="Шинэ хүргэлт нийтлэгдмэгц энд харагдана."
+            style={styles.emptyState}
+          />
+        }
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  safe: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: Colors.background,
   },
-  container: {
+  stateWrap: {
     flex: 1,
-    backgroundColor: "#fff",
+    paddingHorizontal: Layout.screenPadding,
   },
-  scrollContent: {
-    paddingBottom: 24,
+  content: {
+    paddingHorizontal: Layout.screenPadding,
+    paddingBottom: Spacing.xxl,
   },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+  toggle: {
+    minHeight: 40,
+    borderRadius: 999,
+    paddingHorizontal: Spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#1a1a1a",
-    marginBottom: 4,
+  toggleActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
-  subtitle: {
-    fontSize: 14,
-    color: "#666",
+  toggleInactive: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.primarySoftStrong,
   },
-  locationCard: {
-    marginHorizontal: 16,
-    marginVertical: 16,
-    padding: 16,
-    backgroundColor: "#f0f7ff",
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: "#0066cc",
+  toggleText: {
+    marginLeft: Spacing.xs + 2,
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textSoft,
   },
-  locationTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1a1a1a",
-    marginBottom: 8,
+  toggleTextActive: {
+    color: Colors.white,
   },
-  locationText: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#333",
-    marginBottom: 12,
-    lineHeight: 20,
+  summaryGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
   },
-  updateLocationButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: "#0066cc",
-    borderRadius: 6,
-    alignSelf: "flex-start",
+  heroPanel: {
+    marginBottom: Spacing.md,
   },
-  updateLocationButtonText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  statsContainer: {
-    paddingHorizontal: 16,
-    marginVertical: 12,
-    gap: 12,
-  },
-  statCard: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderTopRightRadius: 12,
-  },
-  statCardDeliveries: {
-    backgroundColor: "#f0f9ff",
-    borderLeftColor: "#3b82f6",
-  },
-  statCardEarnings: {
-    backgroundColor: "#f0fdf4",
-    borderLeftColor: "#10b981",
-  },
-  statCardRating: {
-    backgroundColor: "#fff7ed",
-    borderLeftColor: "#f59e0b",
-  },
-  statLabel: {
-    fontSize: 13,
-    color: "#666",
-    marginBottom: 6,
-    fontWeight: "500",
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#1a1a1a",
-    marginBottom: 4,
-  },
-  statSubtext: {
-    fontSize: 12,
-    color: "#999",
-  },
-  primaryButton: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 24,
-    paddingVertical: 16,
-    borderRadius: 12,
+  heroAccessory: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    backgroundColor: Colors.primarySoft,
+    borderWidth: 1,
+    borderColor: Colors.primarySoftStrong,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#ccc",
   },
-  primaryButtonActive: {
-    backgroundColor: "#28a745",
+  summaryCard: {
+    width: "48.2%",
   },
-  primaryButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
+  errorCard: {
+    marginBottom: Spacing.md,
   },
-  offlineMessage: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 24,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    backgroundColor: "#fff3cd",
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: "#ffc107",
-  },
-  offlineMessageText: {
-    color: "#856404",
-    fontSize: 14,
-    fontWeight: "500",
-    textAlign: "center",
-  },
-  infoSection: {
-    marginHorizontal: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
-  },
-  infoTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#1a1a1a",
-    marginBottom: 12,
-  },
-  infoItem: {
+  errorRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 10,
-    gap: 8,
+    alignItems: "center",
   },
-  infoBullet: {
-    fontSize: 16,
-    marginRight: 4,
-  },
-  infoText: {
+  errorText: {
     flex: 1,
-    fontSize: 13,
-    color: "#555",
-    lineHeight: 18,
+    marginLeft: Spacing.sm,
+    fontSize: FontSize.sm,
+    color: Colors.danger,
+    lineHeight: 20,
+  },
+  taskCard: {
+    marginBottom: Spacing.sm + 4,
+  },
+  emptyState: {
+    marginTop: Spacing.sm,
   },
 });
 

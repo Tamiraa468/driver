@@ -1,3 +1,4 @@
+import { CircleDot, MapPin } from "lucide-react-native";
 import React from "react";
 import {
   Pressable,
@@ -6,6 +7,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import {
+  Colors,
+  FontSize,
+  Radius,
+  Shadow,
+  Spacing,
+} from "../constants/design";
 import { CourierOrder } from "../types/order";
 
 interface OrderCardProps {
@@ -37,7 +45,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={styles.restaurant}>{order.restaurantName}</Text>
-          <Text style={styles.fee}>Delivery: ₮{order.deliveryFee}</Text>
+          <Text style={styles.fee}>Хүргэлт: ₮{order.deliveryFee}</Text>
         </View>
         <View
           style={[
@@ -55,13 +63,19 @@ const OrderCard: React.FC<OrderCardProps> = ({
 
       <View style={styles.locations}>
         <View style={styles.location}>
-          <Text style={styles.locationLabel}>📍 Pickup</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <MapPin size={14} color={Colors.primaryDark} strokeWidth={2} />
+            <Text style={styles.locationLabel}>Авах цэг</Text>
+          </View>
           <Text style={styles.locationText} numberOfLines={1}>
             {order.pickupLocation}
           </Text>
         </View>
         <View style={styles.location}>
-          <Text style={styles.locationLabel}>🎯 Dropoff</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <CircleDot size={14} color={Colors.primary} strokeWidth={2} />
+            <Text style={styles.locationLabel}>Хүргэх цэг</Text>
+          </View>
           <Text style={styles.locationText} numberOfLines={1}>
             {order.dropoffLocation}
           </Text>
@@ -70,11 +84,11 @@ const OrderCard: React.FC<OrderCardProps> = ({
 
       <View style={styles.details}>
         <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Distance</Text>
+          <Text style={styles.detailLabel}>Зай</Text>
           <Text style={styles.detailValue}>{order.distance.toFixed(1)} km</Text>
         </View>
         <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Total Price</Text>
+          <Text style={styles.detailLabel}>Нийт үнэ</Text>
           <Text style={styles.detailValue}>₮{order.totalPrice}</Text>
         </View>
       </View>
@@ -85,13 +99,13 @@ const OrderCard: React.FC<OrderCardProps> = ({
             style={[styles.button, styles.rejectButton]}
             onPress={() => onReject?.(order.id)}
           >
-            <Text style={styles.rejectButtonText}>Reject</Text>
+            <Text style={styles.rejectButtonText}>Татгалзах</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.button, styles.acceptButton]}
             onPress={() => onAccept?.(order.id)}
           >
-            <Text style={styles.acceptButtonText}>Accept</Text>
+            <Text style={styles.acceptButtonText}>Хүлээн авах</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -101,26 +115,25 @@ const OrderCard: React.FC<OrderCardProps> = ({
 
 function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
-    available: "Available",
-    accepted: "Accepted",
-    picked_up: "Picked Up",
-    on_way: "On The Way",
-    delivered: "Delivered",
+    available: "Нээлттэй",
+    accepted: "Хүлээн авсан",
+    picked_up: "Авсан",
+    on_way: "Замдаа",
+    delivered: "Хүргэгдсэн",
   };
   return labels[status] || status;
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    padding: 16,
+    backgroundColor: Colors.cardBg,
+    borderRadius: Radius.card,
+    marginHorizontal: Spacing.md,
+    marginVertical: Spacing.sm,
+    padding: Spacing.md,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
-    boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.05)",
-    elevation: 2,
+    borderColor: Colors.border,
+    ...Shadow.card,
   },
   cardCompact: {
     marginVertical: 6,
@@ -136,60 +149,65 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   restaurant: {
-    fontSize: 16,
+    fontSize: FontSize.base,
     fontWeight: "700",
-    color: "#1a1a1a",
+    color: Colors.text,
     marginBottom: 4,
   },
   fee: {
-    fontSize: 14,
+    fontSize: FontSize.sm,
     fontWeight: "600",
-    color: "#28a745",
+    color: Colors.primaryDark,
   },
   statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     marginLeft: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   statusAvailable: {
-    backgroundColor: "#e3f2fd",
+    backgroundColor: Colors.primarySoft,
+    borderColor: Colors.primarySoftStrong,
   },
   statusAccepted: {
-    backgroundColor: "#fff3cd",
+    backgroundColor: Colors.surface,
   },
   statusPickedUp: {
-    backgroundColor: "#d1ecf1",
+    backgroundColor: Colors.infoSoft,
+    borderColor: "#C8D5FF",
   },
   statusOnWay: {
-    backgroundColor: "#f8d7da",
+    backgroundColor: Colors.warningSoft,
   },
   statusDelivered: {
-    backgroundColor: "#d4edda",
+    backgroundColor: Colors.successSoft,
+    borderColor: Colors.primarySoftStrong,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: FontSize.xs,
     fontWeight: "600",
-    color: "#1a1a1a",
+    color: Colors.text,
   },
   locations: {
     marginBottom: 12,
     gap: 8,
   },
   location: {
-    backgroundColor: "#f8f9fa",
+    backgroundColor: Colors.accentSoft,
     padding: 10,
     borderRadius: 8,
   },
   locationLabel: {
-    fontSize: 12,
+    fontSize: FontSize.xs,
     fontWeight: "600",
-    color: "#666",
+    color: Colors.textSoft,
     marginBottom: 2,
   },
   locationText: {
     fontSize: 13,
-    color: "#1a1a1a",
+    color: Colors.text,
     fontWeight: "500",
   },
   details: {
@@ -197,21 +215,21 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
+    borderTopColor: Colors.border,
     marginBottom: 12,
   },
   detailItem: {
     flex: 1,
   },
   detailLabel: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: FontSize.xs,
+    color: Colors.textSoft,
     marginBottom: 4,
   },
   detailValue: {
-    fontSize: 14,
+    fontSize: FontSize.sm,
     fontWeight: "700",
-    color: "#1a1a1a",
+    color: Colors.text,
   },
   actions: {
     flexDirection: "row",
@@ -226,18 +244,20 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   acceptButton: {
-    backgroundColor: "#28a745",
+    backgroundColor: Colors.accent,
   },
   acceptButtonText: {
-    color: "#fff",
+    color: Colors.white,
     fontWeight: "700",
     fontSize: 14,
   },
   rejectButton: {
-    backgroundColor: "#f0f0f0",
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   rejectButtonText: {
-    color: "#666",
+    color: Colors.textSoft,
     fontWeight: "700",
     fontSize: 14,
   },

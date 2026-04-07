@@ -1,26 +1,39 @@
-/**
- * Pending Approval Screen
- *
- * Shown to couriers whose account is pending admin approval.
- * Includes refresh button to check if status has been updated.
- */
-
+import { Hourglass, RefreshCw } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  Card,
+  PrimaryButton,
+  ScreenHeader,
+  StateView,
+  StatusBadge,
+} from "../../components/ui";
+import {
+  Colors,
+  FontSize,
+  FontWeight,
+  Layout,
+  Radius,
+  Spacing,
+} from "../../constants/design";
 import { useCourierAuth } from "../../context/CourierAuthContext";
 
+const REQUIREMENTS = [
+  "Хүчин төгөлдөр иргэний үнэмлэх",
+  "Тээврийн хэрэгслийн бичиг баримт",
+  "Утасны дугаар баталгаажуулалт",
+];
+
 const PendingApprovalScreen: React.FC = () => {
-  const { user, refreshStatus, signOut, isLoading, accessStatus } =
-    useCourierAuth();
+  const { user, refreshStatus, signOut, isLoading } = useCourierAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = useCallback(async () => {
@@ -32,266 +45,176 @@ const PendingApprovalScreen: React.FC = () => {
     }
   }, [refreshStatus]);
 
-  const handleSignOut = async () => {
-    await signOut();
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safe}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            tintColor="#007AFF"
+            tintColor={Colors.primary}
           />
         }
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.content}>
-          {/* Icon */}
-          <View style={styles.iconContainer}>
-            <Text style={styles.icon}>⏳</Text>
+        <ScreenHeader
+          title="Баталгаажуулалт хүлээгдэж байна"
+          subtitle="Таны курьерын бүртгэл админы хяналт хүлээж байна."
+        />
+
+        <StateView
+          icon={<Hourglass size={28} color={Colors.warning} strokeWidth={2} />}
+          title="Баталгаажуулалт хүлээгдэж байна"
+          description="Таны бүртгэлийг админ шалгаж байна. Баталгаажсаны дараа та хүргэлт хүлээн авах боломжтой болно."
+          style={styles.heroCard}
+        />
+
+        <Card style={styles.infoCard}>
+          <Text style={styles.sectionLabel}>Бүртгэлийн мэдээлэл</Text>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>И-мэйл</Text>
+            <Text style={styles.infoValue}>{user?.email ?? "Мэдээлэлгүй"}</Text>
           </View>
-
-          {/* Title */}
-          <Text style={styles.title}>Баталгаажуулалт хүлээгдэж байна</Text>
-
-          {/* Message */}
-          <Text style={styles.message}>
-            Таны бүртгэлийг админ шалгаж байна. Баталгаажсаны дараа та хүргэлт
-            хүлээн авах боломжтой болно.
-          </Text>
-
-          {/* User Info */}
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>И-мэйл:</Text>
-              <Text style={styles.infoValue}>{user?.email}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Нэр:</Text>
-              <Text style={styles.infoValue}>
-                {user?.full_name || "Оруулаагүй"}
-              </Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Төлөв:</Text>
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>Хүлээгдэж байна</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Tips */}
-          <View style={styles.tipsContainer}>
-            <Text style={styles.tipsTitle}>Юу хэрэгтэй вэ?</Text>
-            <View style={styles.tipItem}>
-              <Text style={styles.tipBullet}>✓</Text>
-              <Text style={styles.tipText}>Хүчин төгөлдөр иргэний үнэмлэх</Text>
-            </View>
-            <View style={styles.tipItem}>
-              <Text style={styles.tipBullet}>✓</Text>
-              <Text style={styles.tipText}>
-                Тээврийн хэрэгслийн бичиг баримт
-              </Text>
-            </View>
-            <View style={styles.tipItem}>
-              <Text style={styles.tipBullet}>✓</Text>
-              <Text style={styles.tipText}>Утасны дугаар баталгаажуулалт</Text>
-            </View>
-          </View>
-
-          {/* Refresh Button */}
-          <TouchableOpacity
-            style={styles.refreshButton}
-            onPress={handleRefresh}
-            disabled={isLoading || isRefreshing}
-          >
-            {isLoading || isRefreshing ? (
-              <ActivityIndicator color="#007AFF" />
-            ) : (
-              <>
-                <Text style={styles.refreshIcon}>🔄</Text>
-                <Text style={styles.refreshButtonText}>Төлөв шалгах</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          {/* Sign Out Button */}
-          <TouchableOpacity
-            style={styles.signOutButton}
-            onPress={handleSignOut}
-            disabled={isLoading}
-          >
-            <Text style={styles.signOutButtonText}>Гарах</Text>
-          </TouchableOpacity>
-
-          {/* Support Info */}
-          <View style={styles.supportContainer}>
-            <Text style={styles.supportText}>
-              Асуулт байвал бидэнтэй холбогдоно уу
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Нэр</Text>
+            <Text style={styles.infoValue}>
+              {user?.full_name || "Оруулаагүй"}
             </Text>
-            <TouchableOpacity>
-              <Text style={styles.supportLink}>support@delivery.mn</Text>
-            </TouchableOpacity>
           </View>
-        </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Төлөв</Text>
+            <StatusBadge label="Хяналт хүлээж байна" status="warning" />
+          </View>
+        </Card>
+
+        <Card style={styles.requirementsCard} variant="subtle">
+          <Text style={styles.sectionTitle}>Юу хэрэгтэй вэ?</Text>
+          {REQUIREMENTS.map((item) => (
+            <View key={item} style={styles.requirementRow}>
+              <View style={styles.dot} />
+              <Text style={styles.requirementText}>{item}</Text>
+            </View>
+          ))}
+        </Card>
+
+        <TouchableOpacity
+          activeOpacity={0.78}
+          onPress={() => {
+            void handleRefresh();
+          }}
+          style={styles.refreshHint}
+        >
+          <RefreshCw size={16} color={Colors.primaryDark} strokeWidth={2} />
+          <Text style={styles.refreshHintText}>
+            Доош татаж шинэчлэх эсвэл энд дарж төлөвөө дахин шалгана уу.
+          </Text>
+        </TouchableOpacity>
+
+        <PrimaryButton
+          title="Төлөв шалгах"
+          onPress={() => {
+            void handleRefresh();
+          }}
+          loading={isLoading || isRefreshing}
+          style={styles.primaryButton}
+        />
+
+        <PrimaryButton
+          title="Гарах"
+          onPress={() => {
+            void signOut();
+          }}
+          disabled={isLoading}
+          variant="outline"
+        />
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safe: {
     flex: 1,
-    backgroundColor: "#fff",
-  },
-  scrollContent: {
-    flexGrow: 1,
+    backgroundColor: Colors.background,
   },
   content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 40,
-    alignItems: "center",
+    paddingHorizontal: Layout.screenPadding,
+    paddingBottom: Spacing.xxl,
   },
-  iconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "#fff8e6",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  icon: {
-    fontSize: 50,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#1a1a1a",
-    textAlign: "center",
-    marginBottom: 12,
-  },
-  message: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: "center",
-    lineHeight: 24,
-    marginBottom: 24,
-    paddingHorizontal: 16,
+  heroCard: {
+    marginBottom: Spacing.md,
   },
   infoCard: {
-    width: "100%",
-    backgroundColor: "#f9f9f9",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
+    marginBottom: Spacing.md,
+  },
+  sectionLabel: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+    color: Colors.textSoft,
+    marginBottom: Spacing.sm,
   },
   infoRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e8e8e8",
+    justifyContent: "space-between",
+    marginBottom: Spacing.sm,
+    gap: Spacing.sm,
   },
   infoLabel: {
-    fontSize: 14,
-    color: "#666",
-    fontWeight: "500",
+    fontSize: FontSize.sm,
+    color: Colors.textSoft,
   },
   infoValue: {
-    fontSize: 14,
-    color: "#1a1a1a",
-    fontWeight: "600",
+    flex: 1,
+    textAlign: "right",
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+    color: Colors.text,
   },
-  statusBadge: {
-    backgroundColor: "#fff8e6",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+  requirementsCard: {
+    marginBottom: Spacing.md,
   },
-  statusText: {
-    color: "#f5a623",
-    fontSize: 12,
-    fontWeight: "600",
+  sectionTitle: {
+    fontSize: FontSize.base,
+    fontWeight: FontWeight.semibold,
+    color: Colors.text,
+    marginBottom: Spacing.sm,
   },
-  tipsContainer: {
-    width: "100%",
-    backgroundColor: "#f0f7ff",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-  },
-  tipsTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1a1a1a",
-    marginBottom: 16,
-  },
-  tipItem: {
+  requirementRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: Spacing.sm,
   },
-  tipBullet: {
-    fontSize: 16,
-    color: "#34c759",
-    marginRight: 12,
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.success,
+    marginRight: Spacing.sm,
   },
-  tipText: {
-    fontSize: 14,
-    color: "#666",
+  requirementText: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    color: Colors.textSoft,
+    lineHeight: 20,
   },
-  refreshButton: {
+  refreshHint: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#f0f7ff",
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    width: "100%",
-    marginBottom: 12,
+    marginBottom: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
-  refreshIcon: {
-    fontSize: 18,
-    marginRight: 8,
+  refreshHintText: {
+    marginLeft: Spacing.xs + 2,
+    fontSize: FontSize.sm,
+    color: Colors.primaryDark,
+    fontWeight: FontWeight.medium,
+    textAlign: "center",
   },
-  refreshButtonText: {
-    color: "#007AFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  signOutButton: {
-    paddingVertical: 16,
-    width: "100%",
-    alignItems: "center",
-  },
-  signOutButtonText: {
-    color: "#ff3b30",
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  supportContainer: {
-    marginTop: "auto",
-    alignItems: "center",
-    paddingTop: 24,
-  },
-  supportText: {
-    fontSize: 14,
-    color: "#888",
-    marginBottom: 4,
-  },
-  supportLink: {
-    fontSize: 14,
-    color: "#007AFF",
-    fontWeight: "500",
+  primaryButton: {
+    marginBottom: Spacing.sm + 4,
   },
 });
 

@@ -1,36 +1,44 @@
-import React, { useState, useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { Bike, CheckCircle, MapPin, Store, User } from "lucide-react-native";
+import React, { useCallback, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  RefreshControl,
   ActivityIndicator,
   Alert,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
   TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import {
+  Colors,
+  FontSize,
+  Radius,
+  Shadow,
+  Spacing,
+} from "../../constants/design";
 import { useAuth } from "../../context/AuthContext";
-import { Order, OrderStatus } from "../../types";
 import {
   getOrdersByCourierId,
-  verifyPickupOtp,
   verifyDropoffOtp,
+  verifyPickupOtp,
 } from "../../services/orderService";
+import { Order, OrderStatus } from "../../types";
 
 const getStatusColor = (status: OrderStatus): string => {
   const colors: Record<OrderStatus, string> = {
-    pending: "#FFA500",
-    confirmed: "#007AFF",
-    preparing: "#9B59B6",
-    published: "#2ECC71",
-    assigned: "#1ABC9C",
-    picked_up: "#3498DB",
-    delivered: "#27AE60",
-    cancelled: "#E74C3C",
+    pending: Colors.warning,
+    confirmed: Colors.primaryPressed,
+    preparing: Colors.textMuted,
+    published: Colors.primaryDark,
+    assigned: Colors.primary,
+    picked_up: Colors.primaryPressed,
+    delivered: Colors.success,
+    cancelled: Colors.danger,
   };
-  return colors[status] || "#666";
+  return colors[status] || Colors.textSoft;
 };
 
 const getStatusText = (status: OrderStatus): string => {
@@ -89,7 +97,7 @@ const ActiveScreen: React.FC = () => {
   const updateOtpInput = (
     orderId: string,
     type: "pickup" | "dropoff",
-    value: string
+    value: string,
   ) => {
     setOtpInputs((prev) => ({
       ...prev,
@@ -103,14 +111,14 @@ const ActiveScreen: React.FC = () => {
   const handleVerifyPickup = async (orderId: string) => {
     const otp = otpInputs[orderId]?.pickup?.trim();
     if (!otp) {
-      Alert.alert("OTP шаардлагатай", "Pickup OTP оруулна уу.");
+      Alert.alert("OTP шаардлагатай", "Авах OTP кодоо оруулна уу.");
       return;
     }
 
     setUpdatingOrderId(orderId);
     try {
       await verifyPickupOtp(orderId, otp);
-      Alert.alert("Амжилттай", "Pickup OTP баталгаажлаа.");
+      Alert.alert("Амжилттай", "Авах OTP код баталгаажлаа.");
       loadOrders();
     } catch (error: any) {
       Alert.alert("Алдаа", error.message || "Алдаа гарлаа");
@@ -122,7 +130,7 @@ const ActiveScreen: React.FC = () => {
   const handleVerifyDropoff = async (orderId: string) => {
     const otp = otpInputs[orderId]?.dropoff?.trim();
     if (!otp) {
-      Alert.alert("OTP шаардлагатай", "Dropoff OTP оруулна уу.");
+      Alert.alert("OTP шаардлагатай", "Хүргэлтийн OTP кодоо оруулна уу.");
       return;
     }
 
@@ -161,10 +169,21 @@ const ActiveScreen: React.FC = () => {
         </View>
 
         <View style={styles.orderDetails}>
-          <Text style={styles.shopName}>🏪 {item.supplierName}</Text>
-          <Text style={styles.deliveryAddress}>📍 {item.deliveryAddress}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Store size={16} color={Colors.text} strokeWidth={2} />
+            <Text style={styles.shopName}>{item.supplierName}</Text>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <MapPin size={16} color={Colors.textSoft} strokeWidth={2} />
+            <Text style={styles.deliveryAddress}>{item.deliveryAddress}</Text>
+          </View>
           {item.customerEmail && (
-            <Text style={styles.customerEmail}>👤 {item.customerEmail}</Text>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+            >
+              <User size={16} color={Colors.textSoft} strokeWidth={2} />
+              <Text style={styles.customerEmail}>{item.customerEmail}</Text>
+            </View>
           )}
         </View>
 
@@ -178,12 +197,10 @@ const ActiveScreen: React.FC = () => {
           <View style={styles.otpRow}>
             <TextInput
               style={styles.otpInput}
-              placeholder="Pickup OTP"
+              placeholder="Авах OTP код"
               keyboardType="number-pad"
               value={otpInputs[item.id]?.pickup || ""}
-              onChangeText={(value) =>
-                updateOtpInput(item.id, "pickup", value)
-              }
+              onChangeText={(value) => updateOtpInput(item.id, "pickup", value)}
             />
             <TouchableOpacity
               style={[
@@ -194,7 +211,7 @@ const ActiveScreen: React.FC = () => {
               disabled={updatingOrderId === item.id}
             >
               {updatingOrderId === item.id ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={Colors.accent} />
               ) : (
                 <Text style={styles.otpButtonText}>Баталгаажуулах</Text>
               )}
@@ -206,7 +223,7 @@ const ActiveScreen: React.FC = () => {
           <View style={styles.otpRow}>
             <TextInput
               style={styles.otpInput}
-              placeholder="Dropoff OTP"
+              placeholder="Хүргэлтийн OTP код"
               keyboardType="number-pad"
               value={otpInputs[item.id]?.dropoff || ""}
               onChangeText={(value) =>
@@ -223,7 +240,7 @@ const ActiveScreen: React.FC = () => {
               disabled={updatingOrderId === item.id}
             >
               {updatingOrderId === item.id ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={Colors.accent} />
               ) : (
                 <Text style={styles.otpButtonText}>Хүргэгдсэн</Text>
               )}
@@ -237,7 +254,7 @@ const ActiveScreen: React.FC = () => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={Colors.primary} />
         <Text style={styles.loadingText}>Ачаалж байна...</Text>
       </View>
     );
@@ -246,7 +263,9 @@ const ActiveScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🚴 Идэвхтэй захиалгууд</Text>
+        <Text style={styles.headerTitle}>
+          <Bike size={20} color={Colors.text} strokeWidth={2} /> Идэвхтэй захиалгууд
+        </Text>
         <Text style={styles.headerSubtitle}>
           {orders.length} идэвхтэй захиалга
         </Text>
@@ -263,7 +282,7 @@ const ActiveScreen: React.FC = () => {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyEmoji}>🎉</Text>
+            <CheckCircle size={48} color={Colors.primaryDark} strokeWidth={2} />
             <Text style={styles.emptyTitle}>Идэвхтэй захиалга байхгүй</Text>
             <Text style={styles.emptySubtitle}>
               &quot;Боломжит&quot; хэсгээс захиалга хүлээн аваарай
@@ -278,47 +297,49 @@ const ActiveScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: Colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: Colors.background,
   },
   loadingText: {
     marginTop: 10,
-    color: "#666",
+    color: Colors.textSoft,
   },
   header: {
-    backgroundColor: "#fff",
-    paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 16,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: Spacing.md,
+    paddingTop: 48,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: Colors.border,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: FontSize.xl,
     fontWeight: "bold",
-    color: "#1a1a1a",
+    color: Colors.text,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: FontSize.sm,
+    color: Colors.textSoft,
     marginTop: 4,
   },
   listContent: {
-    padding: 16,
+    padding: Spacing.md,
+    paddingTop: 20,
     flexGrow: 1,
   },
   orderCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: Colors.cardBg,
+    borderRadius: Radius.card,
+    padding: Spacing.md,
     marginBottom: 12,
-    boxShadow: "0px 1px 4px rgba(0, 0, 0, 0.1)",
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadow.card,
   },
   orderHeader: {
     flexDirection: "row",
@@ -327,9 +348,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   orderId: {
-    fontSize: 14,
+    fontSize: FontSize.sm,
     fontWeight: "600",
-    color: "#666",
+    color: Colors.textSoft,
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -345,20 +366,20 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: Colors.border,
   },
   shopName: {
-    fontSize: 16,
+    fontSize: FontSize.base,
     fontWeight: "600",
-    color: "#1a1a1a",
+    color: Colors.text,
   },
   deliveryAddress: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: FontSize.sm,
+    color: Colors.textSoft,
   },
   customerEmail: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: FontSize.sm,
+    color: Colors.textSoft,
   },
   orderFooter: {
     flexDirection: "row",
@@ -366,9 +387,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   totalPrice: {
-    fontSize: 18,
+    fontSize: FontSize.lg,
     fontWeight: "bold",
-    color: "#007AFF",
+    color: Colors.primaryPressed,
   },
   otpRow: {
     flexDirection: "row",
@@ -378,16 +399,17 @@ const styles = StyleSheet.create({
   },
   otpInput: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: Colors.background,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
-    fontSize: 14,
+    borderColor: Colors.border,
+    fontSize: FontSize.sm,
+    color: Colors.text,
   },
   otpButton: {
-    backgroundColor: "#007AFF",
+    backgroundColor: Colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
@@ -395,7 +417,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   updateButton: {
-    backgroundColor: "#007AFF",
+    backgroundColor: Colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
@@ -403,19 +425,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   deliveredButton: {
-    backgroundColor: "#28a745",
+    backgroundColor: Colors.primarySoftStrong,
   },
   updateButtonDisabled: {
     opacity: 0.7,
   },
   otpButtonText: {
-    color: "#fff",
+    color: Colors.accent,
     fontSize: 13,
     fontWeight: "600",
   },
   updateButtonText: {
-    color: "#fff",
-    fontSize: 14,
+    color: Colors.accent,
+    fontSize: FontSize.sm,
     fontWeight: "600",
   },
   emptyContainer: {
@@ -429,14 +451,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: FontSize.xl,
     fontWeight: "bold",
-    color: "#1a1a1a",
+    color: Colors.text,
     marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: FontSize.sm,
+    color: Colors.textSoft,
     textAlign: "center",
   },
 });

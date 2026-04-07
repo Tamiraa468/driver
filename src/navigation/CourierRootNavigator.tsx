@@ -1,44 +1,58 @@
-/**
- * Courier Root Navigator
- *
- * Main navigation component for the courier app.
- * Handles routing based on authentication and approval status.
- *
- * Navigation flow:
- * 1. Not authenticated → Auth screens (login/register)
- * 2. Authenticated + Pending → Pending Approval screen
- * 3. Authenticated + Blocked → Blocked Account screen
- * 4. Authenticated + Approved → Main courier tabs
- */
-
-import { NavigationContainer } from "@react-navigation/native";
+import {
+  DefaultTheme,
+  NavigationContainer,
+} from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  View,
-  Platform,
-} from "react-native";
-
+import { Platform, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { ScreenHeader, StateView } from "../components/ui";
+import { Colors, Layout } from "../constants/design";
 import { useCourierAuth } from "../context/CourierAuthContext";
-import { BlockedAccountScreen, PendingApprovalScreen } from "../screens/auth";
+import {
+  BlockedAccountScreen,
+  KYCRequiredScreen,
+  PendingApprovalScreen,
+} from "../screens/auth";
+import { ActiveTrackingScreen, DeliveryDetailsScreen, EPODVerificationScreen } from "../screens/courier";
 import CourierAuthStack from "./CourierAuthStack";
 import CourierTabs from "./CourierTabs";
 
 export type CourierRootStackParamList = {
   Auth: undefined;
+  KYCRequired: undefined;
   PendingApproval: undefined;
   BlockedAccount: undefined;
   CourierMain: undefined;
+  DeliveryDetails: { taskId?: string };
+  ActiveTracking: { taskId: string };
+  EPODVerification: { taskId: string };
 };
 
 const Stack = createNativeStackNavigator<CourierRootStackParamList>();
 
+const navigationTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: Colors.text,
+    background: Colors.background,
+    card: Colors.surface,
+    text: Colors.text,
+    border: Colors.border,
+    notification: Colors.text,
+  },
+};
+
 const CourierRootNavigator: React.FC = () => {
-  const { isLoading, isAuthenticated, isApproved, isPending, isBlocked } =
-    useCourierAuth();
+  const {
+    isLoading,
+    isAuthenticated,
+    isApproved,
+    isKycRequired,
+    isKycSubmitted,
+    isBlocked,
+  } = useCourierAuth();
 
   const blurActiveElementOnWeb = () => {
     if (Platform.OS !== "web" || typeof document === "undefined") {
@@ -51,17 +65,24 @@ const CourierRootNavigator: React.FC = () => {
     }
   };
 
-  // Loading state
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Ачаалж байна...</Text>
-      </View>
+      <SafeAreaView style={styles.loadingSafe}>
+        <View style={styles.loadingWrap}>
+          <ScreenHeader
+            title="Курьер апп"
+            subtitle="Таны курьерын орчныг бэлтгэж байна"
+          />
+          <StateView
+            loading
+            title="Ачааллаж байна..."
+            description="Таны бүртгэл болон хандалтын төлөвийг шалгаж байна."
+          />
+        </View>
+      </SafeAreaView>
     );
   }
 
-  // Determine initial route based on auth and approval status
   const getInitialRouteName = (): keyof CourierRootStackParamList => {
     if (!isAuthenticated) {
       return "Auth";
@@ -71,7 +92,11 @@ const CourierRootNavigator: React.FC = () => {
       return "BlockedAccount";
     }
 
-    if (isPending) {
+    if (isKycRequired) {
+      return "KYCRequired";
+    }
+
+    if (isKycSubmitted) {
       return "PendingApproval";
     }
 
@@ -79,28 +104,30 @@ const CourierRootNavigator: React.FC = () => {
       return "CourierMain";
     }
 
-    // Fallback to auth
     return "Auth";
   };
 
   return (
-    <NavigationContainer onStateChange={blurActiveElementOnWeb}>
+    <NavigationContainer
+      onStateChange={blurActiveElementOnWeb}
+      theme={navigationTheme}
+    >
       <Stack.Navigator
         initialRouteName={getInitialRouteName()}
         screenOptions={{
           headerShown: false,
           animation: Platform.OS === "web" ? "none" : "fade",
+          contentStyle: {
+            backgroundColor: Colors.background,
+          },
         }}
       >
-        {/* Not Authenticated */}
         {!isAuthenticated && (
           <Stack.Screen name="Auth" component={CourierAuthStack} />
         )}
 
-        {/* Authenticated but status checks */}
         {isAuthenticated && (
           <>
-            {/* Blocked Account */}
             {isBlocked && (
               <Stack.Screen
                 name="BlockedAccount"
@@ -108,17 +135,36 @@ const CourierRootNavigator: React.FC = () => {
               />
             )}
 
-            {/* Pending Approval */}
-            {isPending && (
+            {isKycRequired && (
+              <Stack.Screen name="KYCRequired" component={KYCRequiredScreen} />
+            )}
+
+            {isKycSubmitted && (
               <Stack.Screen
                 name="PendingApproval"
                 component={PendingApprovalScreen}
               />
             )}
 
-            {/* Approved - Full Access */}
             {isApproved && (
-              <Stack.Screen name="CourierMain" component={CourierTabs} />
+              <>
+                <Stack.Screen name="CourierMain" component={CourierTabs} />
+                <Stack.Screen
+                  name="DeliveryDetails"
+                  component={DeliveryDetailsScreen}
+                  options={{ animation: "slide_from_right" }}
+                />
+                <Stack.Screen
+                  name="ActiveTracking"
+                  component={ActiveTrackingScreen}
+                  options={{ animation: "slide_from_right" }}
+                />
+                <Stack.Screen
+                  name="EPODVerification"
+                  component={EPODVerificationScreen}
+                  options={{ animation: "slide_from_right" }}
+                />
+              </>
             )}
           </>
         )}
@@ -128,16 +174,13 @@ const CourierRootNavigator: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  loadingContainer: {
+  loadingSafe: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: Colors.background,
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: "#666",
+  loadingWrap: {
+    flex: 1,
+    paddingHorizontal: Layout.screenPadding,
   },
 });
 

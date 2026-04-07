@@ -1,20 +1,26 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react-native";
 import React, { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  SafeAreaView,
+  Alert,
   KeyboardAvoidingView,
   Platform,
-  Alert,
-  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { z } from "zod";
+import { Card, FormField, PrimaryButton, ScreenHeader } from "../../components/ui";
+import {
+  Colors,
+  Layout,
+  Radius,
+  Spacing,
+} from "../../constants/design";
 import { useAuth } from "../../context/AuthContext";
 
 const loginSchema = z.object({
@@ -50,222 +56,145 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const onSubmit = async (data: LoginFormData) => {
     try {
       await signIn(data);
-      // Navigation will be handled by RootNavigator based on auth state
     } catch (error: any) {
       Alert.alert("Алдаа", error.message || "Нэвтрэхэд алдаа гарлаа");
     }
   };
 
+  const passwordToggle = (
+    <TouchableOpacity
+      activeOpacity={0.72}
+      disabled={isLoading}
+      onPress={() => setShowPassword((value) => !value)}
+      style={styles.eyeButton}
+    >
+      {showPassword ? (
+        <EyeOff size={18} color={Colors.textSoft} strokeWidth={2} />
+      ) : (
+        <Eye size={18} color={Colors.textSoft} strokeWidth={2} />
+      )}
+    </TouchableOpacity>
+  );
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardView}
+        style={styles.flex}
       >
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.backButton}
-            >
-              <Text style={styles.backButtonText}>←</Text>
-            </TouchableOpacity>
-            <Text style={styles.title}>Нэвтрэх</Text>
-            <Text style={styles.subtitle}>Тавтай морил!</Text>
-          </View>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <ScreenHeader
+            title="Нэвтрэх"
+            subtitle="Хүргэлтийн бүртгэлдээ нэвтэрч үргэлжлүүлнэ үү."
+            onBackPress={() => navigation.goBack()}
+          />
 
-          <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>И-мэйл</Text>
-              <Controller
-                control={control}
-                name="email"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={[styles.input, errors.email && styles.inputError]}
-                    placeholder="example@email.com"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                    editable={!isLoading}
-                  />
-                )}
-              />
-              {errors.email && (
-                <Text style={styles.errorText}>{errors.email.message}</Text>
-              )}
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Нууц үг</Text>
-              <View style={styles.passwordContainer}>
-                <Controller
-                  control={control}
-                  name="password"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <TextInput
-                      style={[
-                        styles.input,
-                        styles.passwordInput,
-                        errors.password && styles.inputError,
-                      ]}
-                      placeholder="••••••••"
-                      secureTextEntry={!showPassword}
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      value={value}
-                      editable={!isLoading}
-                    />
-                  )}
+          <Card style={styles.formCard}>
+            <Controller
+              control={control}
+              name="email"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <FormField
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  containerStyle={styles.field}
+                  editable={!isLoading}
+                  errorText={errors.email?.message}
+                  keyboardType="email-address"
+                  label="И-мэйл"
+                  leftElement={
+                    <Mail size={18} color={Colors.textSoft} strokeWidth={2} />
+                  }
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  placeholder="example@email.com"
+                  value={value}
                 />
-                <TouchableOpacity
-                  style={styles.showPasswordButton}
-                  onPress={() => setShowPassword(!showPassword)}
-                >
-                  <Text style={styles.showPasswordText}>
-                    {showPassword ? "🙈" : "👁️"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              {errors.password && (
-                <Text style={styles.errorText}>{errors.password.message}</Text>
               )}
-            </View>
+            />
 
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                isLoading && styles.submitButtonDisabled,
-              ]}
-              onPress={handleSubmit(onSubmit)}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.submitButtonText}>Нэвтрэх</Text>
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <FormField
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  containerStyle={styles.field}
+                  editable={!isLoading}
+                  errorText={errors.password?.message}
+                  label="Нууц үг"
+                  leftElement={
+                    <Lock size={18} color={Colors.textSoft} strokeWidth={2} />
+                  }
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  placeholder="••••••••"
+                  rightElement={passwordToggle}
+                  secureTextEntry={!showPassword}
+                  value={value}
+                />
               )}
-            </TouchableOpacity>
-          </View>
+            />
+
+            <PrimaryButton
+              title="Нэвтрэх"
+              onPress={handleSubmit(onSubmit)}
+              loading={isLoading}
+              style={styles.submitButton}
+            />
+          </Card>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Бүртгэл байхгүй юу? </Text>
-            <TouchableOpacity onPress={() => navigation.replace("Register")}>
-              <Text style={styles.footerLink}>Бүртгүүлэх</Text>
-            </TouchableOpacity>
+            <PrimaryButton
+              title="Бүртгүүлэх"
+              onPress={() => navigation.replace("Register")}
+              variant="ghost"
+            />
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safe: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: Colors.background,
   },
-  keyboardView: {
+  flex: {
     flex: 1,
   },
   content: {
-    flex: 1,
-    paddingHorizontal: 24,
+    flexGrow: 1,
+    paddingHorizontal: Layout.screenPadding,
+    paddingBottom: Spacing.xxl,
   },
-  header: {
-    marginTop: 20,
-    marginBottom: 40,
+  formCard: {
+    marginTop: Spacing.xs,
   },
-  backButton: {
-    marginBottom: 20,
+  field: {
+    marginBottom: Spacing.md,
   },
-  backButtonText: {
-    fontSize: 28,
-    color: "#007AFF",
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#1a1a1a",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#666",
-  },
-  form: {
-    gap: 20,
-  },
-  inputContainer: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1a1a1a",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    backgroundColor: "#f9f9f9",
-  },
-  inputError: {
-    borderColor: "#ff3b30",
-  },
-  passwordContainer: {
-    position: "relative",
-  },
-  passwordInput: {
-    paddingRight: 50,
-  },
-  showPasswordButton: {
-    position: "absolute",
-    right: 16,
-    top: 14,
-  },
-  showPasswordText: {
-    fontSize: 20,
-  },
-  errorText: {
-    color: "#ff3b30",
-    fontSize: 12,
+  eyeButton: {
+    width: 28,
+    height: 28,
+    borderRadius: Radius.full,
+    alignItems: "center",
+    justifyContent: "center",
   },
   submitButton: {
-    backgroundColor: "#007AFF",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 10,
-  },
-  submitButtonDisabled: {
-    opacity: 0.7,
-  },
-  submitButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
+    marginTop: Spacing.xs,
   },
   footer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: "auto",
-    marginBottom: 40,
-  },
-  footerText: {
-    color: "#666",
-    fontSize: 14,
-  },
-  footerLink: {
-    color: "#007AFF",
-    fontSize: 14,
-    fontWeight: "600",
+    marginTop: Spacing.lg,
+    alignItems: "center",
   },
 });
 

@@ -35,6 +35,7 @@ const normalizeProfile = (
   id: profile.id,
   email: profile.email || authEmail,
   full_name: profile.full_name ?? null,
+  phone: profile.phone ?? null,
   role: (profile.role as UserRole) || fallbackRole,
   status: profile.status ?? resolveStatus(fallbackRole),
   avatar_url: profile.avatar_url ?? null,
@@ -55,25 +56,25 @@ const mapAuthErrorMessage = (
     normalized.includes("rate limit") ||
     normalized.includes("for security purposes")
   ) {
-    return "Too many signup attempts. Please wait a few minutes and try again.";
+    return "Бүртгүүлэх оролдлого хэт олон байна. Хэдэн минут хүлээгээд дахин оролдоно уу.";
   }
   if (
     normalized.includes("invalid login credentials") ||
     normalized.includes("invalid_credentials")
   ) {
-    return "Invalid email or password. Please try again.";
+    return "И-мэйл эсвэл нууц үг буруу байна. Дахин оролдоно уу.";
   }
   if (normalized.includes("email not confirmed")) {
-    return "Please confirm your email address before signing in.";
+    return "Нэвтрэхээсээ өмнө и-мэйл хаягаа баталгаажуулна уу.";
   }
   if (normalized.includes("database error saving new user")) {
-    return "Signup is currently blocked by a server database trigger error.";
+    return "Серверийн өгөгдлийн сангийн алдаанаас болж бүртгэл үүсгэх боломжгүй байна.";
   }
   if (normalized.includes("too many requests")) {
-    return "Too many signup attempts. Please wait a few minutes and try again.";
+    return "Бүртгүүлэх оролдлого хэт олон байна. Хэдэн минут хүлээгээд дахин оролдоно уу.";
   }
   if (normalized.includes("over_email_send_rate_limit")) {
-    return "Too many verification emails sent. Please wait before requesting again.";
+    return "Баталгаажуулах и-мэйл хэт олон илгээгдсэн байна. Түр хүлээгээд дахин хүсэлт гаргана уу.";
   }
   return error.message;
 };
@@ -93,7 +94,7 @@ export const signIn = async ({
   }
 
   if (!data.user) {
-    throw new Error("No user returned from sign in");
+    throw new Error("Хэрэглэгчийн мэдээлэл олдсонгүй");
   }
 
   const authEmail = data.user.email || email;
@@ -161,7 +162,7 @@ export const signUp = async ({
   }
 
   if (!data.user) {
-    throw new Error("No user returned from sign up");
+    throw new Error("Хэрэглэгчийн мэдээлэл олдсонгүй");
   }
 
   if (!data.session) {

@@ -1,428 +1,634 @@
-import React, { useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import {
+  CalendarDays,
+  CircleAlert,
+  Clock3,
+  Package,
+  Wallet,
+} from "lucide-react-native";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   FlatList,
-  SafeAreaView,
-  ScrollView,
+  RefreshControl,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
-import { CourierEarning } from "../../types/order";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  Card,
+  FilterTabs,
+  HeroPanel,
+  ListItemCard,
+  ScreenHeader,
+  SectionTitle,
+  StateView,
+  SummaryCard,
+} from "../../components/ui";
+import {
+  Colors,
+  FontSize,
+  FontWeight,
+  Layout,
+  Spacing,
+} from "../../constants/design";
+import { fetchCourierDashboardTasks } from "../../services/deliveryTaskService";
+import {
+  CourierDashboardTask,
+  CourierTaskEarningStatus,
+} from "../../types/order";
 
-type TimePeriod = "today" | "week" | "month";
+type EarningsFilter = "today" | "week" | "month" | "all";
+type EarningsBucket = "earned" | "pending" | "not_earned" | "cancelled";
+type BadgeTone = "success" | "warning" | "danger" | "info" | "default";
+type AmountTone = "default" | "primary" | "success" | "warning" | "danger";
 
-const MOCK_EARNINGS: CourierEarning[] = [
-  {
-    id: "1",
-    orderId: "ORD-001",
-    amount: 25000,
-    deliveryDistance: 3.2,
-    completedAt: "2024-01-20T14:30:00",
-  },
-  {
-    id: "2",
-    orderId: "ORD-002",
-    amount: 18000,
-    deliveryDistance: 2.1,
-    completedAt: "2024-01-20T13:15:00",
-  },
-  {
-    id: "3",
-    orderId: "ORD-003",
-    amount: 32000,
-    deliveryDistance: 4.5,
-    completedAt: "2024-01-20T11:45:00",
-  },
-  {
-    id: "4",
-    orderId: "ORD-004",
-    amount: 22000,
-    deliveryDistance: 2.8,
-    completedAt: "2024-01-20T10:20:00",
-  },
-  {
-    id: "5",
-    orderId: "ORD-005",
-    amount: 28000,
-    deliveryDistance: 3.7,
-    completedAt: "2024-01-19T18:00:00",
-  },
-];
+type LucideIcon = React.ComponentType<{
+  size?: number;
+  color?: string;
+  strokeWidth?: number;
+}>;
 
-interface EarningsSummary {
+interface SummaryCardItem {
+  id: string;
+  label: string;
+  value: string;
+  hint: string;
+  icon: LucideIcon;
+  tone: "primary" | "success" | "warning" | "neutral";
+}
+
+interface DashboardSummary {
   totalEarnings: number;
-  deliveryCount: number;
-  totalDistance: number;
-  averagePerDelivery: number;
+  completedDeliveries: number;
+  pendingPayout: number;
+  thisWeekEarnings: number;
+  currentPeriodEarnings: number;
+  currentPeriodCompleted: number;
+  currentPeriodPending: number;
+}
+
+interface HistoryItemViewModel {
+  id: string;
+  title: string;
+  subtitle: string;
+  pickupSummary: string;
+  dropoffSummary: string;
+  statusLabel: string;
+  statusTone: BadgeTone;
+  amountText: string;
+  amountTone: AmountTone;
+  sortTime: number;
+}
+
+const FILTER_OPTIONS = [
+  { key: "today", label: "Өнөөдөр" },
+  { key: "week", label: "Энэ 7 хоног" },
+  { key: "month", label: "Энэ сар" },
+  { key: "all", label: "Бүх хугацаа" },
+] satisfies { key: EarningsFilter; label: string }[];
+
+const PERIOD_LABELS: Record<EarningsFilter, string> = {
+  today: "Өнөөдөр",
+  week: "Энэ 7 хоног",
+  month: "Энэ сар",
+  all: "Бүх хугацаа",
+};
+
+function startOfDay(date: Date): Date {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function startOfWeek(date: Date): Date {
+  const next = startOfDay(date);
+  const weekday = next.getDay();
+  const offset = weekday === 0 ? 6 : weekday - 1;
+  next.setDate(next.getDate() - offset);
+  return next;
+}
+
+function startOfMonth(date: Date): Date {
+  const next = startOfDay(date);
+  next.setDate(1);
+  return next;
+}
+
+function parseDate(value: string | null | undefined): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatCurrency(amount: number): string {
+  return `₮${Math.round(amount).toLocaleString()}`;
+}
+
+function formatDateTime(value: string | null | undefined): string {
+  const date = parseDate(value);
+
+  if (!date) {
+    return "Огнооны мэдээлэлгүй";
+  }
+
+  return date.toLocaleString("mn-MN", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function getTaskBucket(status: CourierTaskEarningStatus): EarningsBucket {
+  switch (status) {
+    case "delivered":
+    case "completed":
+      return "earned";
+    case "picked_up":
+    case "in_transit":
+    case "on_way":
+      return "pending";
+    case "cancelled":
+      return "cancelled";
+    case "assigned":
+    case "claimed":
+    default:
+      return "not_earned";
+  }
+}
+
+function getStatusMeta(
+  status: CourierTaskEarningStatus,
+): { label: string; tone: BadgeTone } {
+  switch (status) {
+    case "delivered":
+    case "completed":
+      return { label: "Хүргэгдсэн", tone: "success" };
+    case "picked_up":
+      return { label: "Авсан", tone: "info" };
+    case "in_transit":
+    case "on_way":
+      return { label: "Замдаа", tone: "info" };
+    case "cancelled":
+      return { label: "Цуцлагдсан", tone: "danger" };
+    case "assigned":
+    case "claimed":
+      return { label: "Оноогдсон", tone: "warning" };
+    default:
+      return { label: "Хүлээгдэж байна", tone: "default" };
+  }
+}
+
+function getReferenceDate(task: CourierDashboardTask): Date | null {
+  return (
+    parseDate(task.delivered_at) ??
+    parseDate(task.picked_up_at) ??
+    parseDate(task.accepted_at) ??
+    parseDate(task.assigned_at) ??
+    parseDate(task.updated_at) ??
+    parseDate(task.created_at)
+  );
+}
+
+function getReferenceTimestamp(task: CourierDashboardTask): number {
+  return getReferenceDate(task)?.getTime() ?? 0;
+}
+
+function isWithinFilter(
+  date: Date | null,
+  filter: EarningsFilter,
+  now: Date,
+): boolean {
+  if (!date) {
+    return false;
+  }
+
+  if (filter === "all") {
+    return true;
+  }
+
+  const target = date.getTime();
+
+  if (filter === "today") {
+    return target >= startOfDay(now).getTime();
+  }
+
+  if (filter === "week") {
+    return target >= startOfWeek(now).getTime();
+  }
+
+  return target >= startOfMonth(now).getTime();
+}
+
+function shortenAddress(address: string): string {
+  const summary = address.split(",")[0]?.trim();
+  return summary && summary.length > 0 ? summary : address;
+}
+
+function buildDashboardSummary(
+  tasks: CourierDashboardTask[],
+  filter: EarningsFilter,
+  now: Date,
+): DashboardSummary {
+  let totalEarnings = 0;
+  let completedDeliveries = 0;
+  let pendingPayout = 0;
+  let thisWeekEarnings = 0;
+  let currentPeriodEarnings = 0;
+  let currentPeriodCompleted = 0;
+  let currentPeriodPending = 0;
+
+  for (const task of tasks) {
+    const bucket = getTaskBucket(task.status);
+    const amount = task.delivery_fee;
+    const referenceDate = getReferenceDate(task);
+    const completedDate = parseDate(task.delivered_at) ?? referenceDate;
+
+    if (bucket === "earned") {
+      totalEarnings += amount;
+      completedDeliveries += 1;
+
+      if (isWithinFilter(completedDate, "week", now)) {
+        thisWeekEarnings += amount;
+      }
+
+      if (isWithinFilter(completedDate, filter, now)) {
+        currentPeriodEarnings += amount;
+        currentPeriodCompleted += 1;
+      }
+    }
+
+    if (bucket === "pending") {
+      pendingPayout += amount;
+
+      if (isWithinFilter(referenceDate, filter, now)) {
+        currentPeriodPending += amount;
+      }
+    }
+  }
+
+  return {
+    totalEarnings,
+    completedDeliveries,
+    pendingPayout,
+    thisWeekEarnings,
+    currentPeriodEarnings,
+    currentPeriodCompleted,
+    currentPeriodPending,
+  };
+}
+
+function buildHistoryItem(task: CourierDashboardTask): HistoryItemViewModel {
+  const bucket = getTaskBucket(task.status);
+  const { label, tone } = getStatusMeta(task.status);
+  const referenceDate = getReferenceDate(task);
+
+  let amountText = "Орлого тооцоогүй";
+  let amountTone: AmountTone = "default";
+  let subtitle = `Хүлээн авсан • ${formatDateTime(task.accepted_at ?? task.assigned_at)}`;
+
+  if (bucket === "earned") {
+    amountText = `+${formatCurrency(task.delivery_fee)}`;
+    amountTone = "success";
+    subtitle = `Хүргэгдсэн • ${formatDateTime(task.delivered_at)}`;
+  } else if (bucket === "pending") {
+    amountText = `${formatCurrency(task.delivery_fee)} хүлээгдэж байна`;
+    amountTone = "warning";
+    subtitle = `Сүүлийн шинэчлэлт • ${formatDateTime(
+      task.picked_up_at ?? task.accepted_at ?? task.assigned_at,
+    )}`;
+  } else if (bucket === "cancelled") {
+    amountText = formatCurrency(0);
+    amountTone = "default";
+    subtitle = `Цуцлагдсан • ${formatDateTime(task.updated_at ?? task.created_at)}`;
+  }
+
+  return {
+    id: task.id,
+    title: `Хүргэлт #${task.id.slice(0, 8).toUpperCase()}`,
+    subtitle,
+    pickupSummary: shortenAddress(task.pickup_address),
+    dropoffSummary: shortenAddress(task.dropoff_address),
+    statusLabel: label,
+    statusTone: tone,
+    amountText,
+    amountTone,
+    sortTime: referenceDate?.getTime() ?? 0,
+  };
+}
+
+function filterHistoryTasks(
+  tasks: CourierDashboardTask[],
+  filter: EarningsFilter,
+  now: Date,
+): HistoryItemViewModel[] {
+  return tasks
+    .filter((task) => isWithinFilter(getReferenceDate(task), filter, now))
+    .sort((a, b) => getReferenceTimestamp(b) - getReferenceTimestamp(a))
+    .map(buildHistoryItem);
 }
 
 const EarningsScreen: React.FC = () => {
-  const [period, setPeriod] = useState<TimePeriod>("today");
+  const hasLoadedRef = useRef(false);
+  const [tasks, setTasks] = useState<CourierDashboardTask[]>([]);
+  const [filter, setFilter] = useState<EarningsFilter>("week");
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data for different periods
-  const getSummaryByPeriod = (selectedPeriod: TimePeriod): EarningsSummary => {
-    switch (selectedPeriod) {
-      case "today":
-        return {
-          totalEarnings: 125000,
-          deliveryCount: 5,
-          totalDistance: 16.3,
-          averagePerDelivery: 25000,
-        };
-      case "week":
-        return {
-          totalEarnings: 850000,
-          deliveryCount: 32,
-          totalDistance: 118.5,
-          averagePerDelivery: 26562.5,
-        };
-      case "month":
-        return {
-          totalEarnings: 3480000,
-          deliveryCount: 135,
-          totalDistance: 512.0,
-          averagePerDelivery: 25777.78,
-        };
-    }
-  };
+  const loadDashboard = useCallback(
+    async ({ showLoader = false, showRefresh = false } = {}) => {
+      if (showLoader) {
+        setLoading(true);
+      }
 
-  const summary = getSummaryByPeriod(period);
+      if (showRefresh) {
+        setRefreshing(true);
+      }
 
-  const handlePeriodChange = (newPeriod: TimePeriod) => {
-    setPeriod(newPeriod);
-  };
+      try {
+        setError(null);
+        const data = await fetchCourierDashboardTasks();
+        setTasks(data);
+        hasLoadedRef.current = true;
+    } catch (err) {
+      console.error("[EarningsScreen] Failed to load dashboard:", err);
+      setError("Орлогын самбарыг ачаалж чадсангүй.");
+      } finally {
+        if (showLoader) {
+          setLoading(false);
+        }
 
-  const renderEarningItem = ({ item }: { item: CourierEarning }) => {
-    const date = new Date(item.completedAt);
-    const time = date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+        if (showRefresh) {
+          setRefreshing(false);
+        }
+      }
+    },
+    [],
+  );
 
-    return (
-      <View style={styles.earningItem}>
-        <View style={styles.earningLeft}>
-          <View style={styles.earningIcon}>
-            <Text style={styles.earningIconText}>📦</Text>
+  useFocusEffect(
+    useCallback(() => {
+      void loadDashboard({ showLoader: !hasLoadedRef.current });
+    }, [loadDashboard]),
+  );
+
+  const handleRefresh = useCallback(async () => {
+    await loadDashboard({ showRefresh: true });
+  }, [loadDashboard]);
+
+  const summary = useMemo(
+    () => buildDashboardSummary(tasks, filter, new Date()),
+    [filter, tasks],
+  );
+
+  const historyItems = useMemo(
+    () => filterHistoryTasks(tasks, filter, new Date()),
+    [filter, tasks],
+  );
+
+  const summaryCards = useMemo<SummaryCardItem[]>(
+    () => [
+      {
+        id: "total",
+        label: "Нийт орлого",
+        value: formatCurrency(summary.totalEarnings),
+        hint: "Хүргэгдсэн бүх ажлын орлого",
+        icon: Wallet,
+        tone: "success",
+      },
+      {
+        id: "completed",
+        label: "Дууссан хүргэлт",
+        value: summary.completedDeliveries.toLocaleString(),
+        hint: "Хүргэгдсэн захиалгын тоо",
+        icon: Package,
+        tone: "primary",
+      },
+      {
+        id: "pending",
+        label: "Хүлээгдэж буй орлого",
+        value: formatCurrency(summary.pendingPayout),
+        hint: "Авсан болон замдаа яваа",
+        icon: Clock3,
+        tone: "warning",
+      },
+      {
+        id: "week",
+        label: "Энэ 7 хоногийн орлого",
+        value: formatCurrency(summary.thisWeekEarnings),
+        hint: "Энэ 7 хоногт дууссан",
+        icon: CalendarDays,
+        tone: "neutral",
+      },
+    ],
+    [
+      summary.completedDeliveries,
+      summary.pendingPayout,
+      summary.thisWeekEarnings,
+      summary.totalEarnings,
+    ],
+  );
+
+  const header = (
+    <View>
+      <ScreenHeader
+        title="Орлого"
+        subtitle="Дууссан хүргэлтүүд болон орлогоо хянаарай"
+      />
+
+      {error ? (
+        <Card style={styles.banner} variant="subtle">
+          <View style={styles.bannerRow}>
+            <CircleAlert size={16} color={Colors.danger} strokeWidth={2} />
+            <Text style={styles.bannerText}>{error}</Text>
           </View>
-          <View style={styles.earningDetails}>
-            <Text style={styles.earningOrderId}>{item.orderId}</Text>
-            <Text style={styles.earningDistance}>
-              {item.deliveryDistance.toFixed(1)} km
-            </Text>
-          </View>
-        </View>
-        <View style={styles.earningRight}>
-          <Text style={styles.earningAmount}>+₮{item.amount}</Text>
-          <Text style={styles.earningTime}>{time}</Text>
-        </View>
+        </Card>
+      ) : null}
+
+      <View style={styles.summaryGrid}>
+        {summaryCards.map((card) => (
+          <SummaryCard key={card.id} {...card} style={styles.summaryCard} />
+        ))}
       </View>
+
+      <View style={styles.filterWrap}>
+        <FilterTabs
+          options={FILTER_OPTIONS}
+          value={filter}
+          onChange={(value) => setFilter(value as EarningsFilter)}
+        />
+      </View>
+
+      <HeroPanel
+        badgeLabel={`${summary.currentPeriodCompleted.toLocaleString()} хүргэлт`}
+        badgeTone="success"
+        description="Энэ хугацааны тойм нь олсон орлого, хүлээгдэж буй дүн, хүргэлтийн идэвхийг нэг дороос хурдан харахад тусална."
+        eyebrow="Сонгосон хугацаа"
+        icon={<Wallet size={24} color={Colors.primaryDark} strokeWidth={2.1} />}
+        metrics={[
+          {
+            label: "Хүлээгдэж буй",
+            value: formatCurrency(summary.currentPeriodPending),
+          },
+          {
+            label: "Түүхийн мөр",
+            value: historyItems.length.toLocaleString(),
+          },
+          {
+            label: "Шүүлтүүр",
+            value: PERIOD_LABELS[filter],
+          },
+        ]}
+        style={styles.heroPanel}
+        title={formatCurrency(summary.currentPeriodEarnings)}
+      />
+
+      <SectionTitle title="Сүүлийн хүргэлтийн орлого" />
+    </View>
+  );
+
+  if (loading && !hasLoadedRef.current) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.stateWrap}>
+          <ScreenHeader
+            title="Орлого"
+            subtitle="Дууссан хүргэлтүүд болон орлогоо хянаарай"
+          />
+          <StateView
+            loading
+            title="Орлогын самбарыг ачааллаж байна..."
+            description="Таны хүргэлтийн үзүүлэлт болон орлогын түүхийг авч байна."
+          />
+        </View>
+      </SafeAreaView>
     );
-  };
+  }
+
+  if (error && tasks.length === 0) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.stateWrap}>
+          <ScreenHeader
+            title="Орлого"
+            subtitle="Дууссан хүргэлтүүд болон орлогоо хянаарай"
+          />
+          <StateView
+            icon={<CircleAlert size={24} color={Colors.danger} strokeWidth={2} />}
+            title="Орлогын мэдээллийг ачаалж чадсангүй"
+            description="Курьерын самбарыг шинэчлэхийн тулд дахин оролдоно уу."
+            actionLabel="Дахин оролдох"
+            onActionPress={() => {
+              void loadDashboard({ showLoader: true });
+            }}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Earnings</Text>
-        </View>
-
-        {/* Period Toggle */}
-        <View style={styles.periodToggle}>
-          {["today", "week", "month"].map((p) => (
-            <TouchableOpacity
-              key={p}
-              style={[
-                styles.periodButton,
-                period === p && styles.periodButtonActive,
-              ]}
-              onPress={() => handlePeriodChange(p as TimePeriod)}
-            >
-              <Text
-                style={[
-                  styles.periodButtonText,
-                  period === p && styles.periodButtonTextActive,
-                ]}
-              >
-                {p === "today" ? "Today" : p === "week" ? "Week" : "Month"}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {/* Summary Cards */}
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryMainContent}>
-              <Text style={styles.summaryLabel}>Total Earnings</Text>
-              <Text style={styles.summaryMainValue}>
-                ₮{summary.totalEarnings.toLocaleString()}
-              </Text>
-            </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryItemLabel}>Deliveries</Text>
-                <Text style={styles.summaryItemValue}>
-                  {summary.deliveryCount}
-                </Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryItemLabel}>Distance</Text>
-                <Text style={styles.summaryItemValue}>
-                  {summary.totalDistance.toFixed(1)} km
-                </Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryItemLabel}>Avg/Delivery</Text>
-                <Text style={styles.summaryItemValue}>
-                  ₮{Math.round(summary.averagePerDelivery).toLocaleString()}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Earnings History */}
-          <View style={styles.historySection}>
-            <Text style={styles.historySectionTitle}>Delivery History</Text>
-            {period === "today" ? (
-              <FlatList
-                data={MOCK_EARNINGS}
-                renderItem={renderEarningItem}
-                keyExtractor={(item) => item.id}
-                scrollEnabled={false}
-                ItemSeparatorComponent={() => <View style={styles.separator} />}
-              />
-            ) : (
-              <View style={styles.placeholderMessage}>
-                <Text style={styles.placeholderText}>
-                  {period === "week"
-                    ? "Week data will show 32 deliveries"
-                    : "Month data will show 135 deliveries"}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Breakdown */}
-          <View style={styles.breakdownSection}>
-            <Text style={styles.breakdownTitle}>Earnings Breakdown</Text>
-            <View style={styles.breakdownItem}>
-              <Text style={styles.breakdownLabel}>Base delivery fee</Text>
-              <Text style={styles.breakdownValue}>70%</Text>
-            </View>
-            <View style={styles.breakdownItem}>
-              <Text style={styles.breakdownLabel}>Distance bonus</Text>
-              <Text style={styles.breakdownValue}>20%</Text>
-            </View>
-            <View style={styles.breakdownItem}>
-              <Text style={styles.breakdownLabel}>Surge pricing</Text>
-              <Text style={styles.breakdownValue}>10%</Text>
-            </View>
-          </View>
-        </ScrollView>
-      </View>
+    <SafeAreaView style={styles.safe}>
+      <FlatList
+        data={historyItems}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <ListItemCard
+            amountText={item.amountText}
+            amountTone={item.amountTone}
+            badgeLabel={item.statusLabel}
+            badgeTone={item.statusTone}
+            style={styles.historyCard}
+            subtitle={item.subtitle}
+            title={item.title}
+            rows={[
+              { label: "Авах цэг", value: item.pickupSummary },
+              { label: "Хүргэх цэг", value: item.dropoffSummary },
+            ]}
+          />
+        )}
+        ListHeaderComponent={header}
+        ListEmptyComponent={
+          <StateView
+            icon={<Wallet size={22} color={Colors.primary} strokeWidth={2} />}
+            title="Одоогоор хүргэлтийн орлого алга"
+            description={
+              filter === "all"
+                ? "Эхний хүргэлтээ дуусмагц орлогын мэдээлэл энд харагдана."
+                : `${PERIOD_LABELS[filter]} хугацаанд хараахан хүргэлтийн мэдээлэл алга байна.`
+            }
+            style={styles.emptyState}
+          />
+        }
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={Colors.primary}
+          />
+        }
+      />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  safe: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: Colors.background,
   },
-  container: {
+  stateWrap: {
     flex: 1,
-    backgroundColor: "#fff",
+    paddingHorizontal: Layout.screenPadding,
   },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
+  content: {
+    paddingHorizontal: Layout.screenPadding,
+    paddingBottom: Spacing.xxl,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#1a1a1a",
+  banner: {
+    marginBottom: Spacing.md,
   },
-  periodToggle: {
+  bannerRow: {
     flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  periodButton: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: "#f0f0f0",
     alignItems: "center",
   },
-  periodButtonActive: {
-    backgroundColor: "#28a745",
+  bannerText: {
+    flex: 1,
+    marginLeft: Spacing.sm,
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.medium,
+    color: Colors.danger,
+    lineHeight: 20,
   },
-  periodButtonText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#666",
-  },
-  periodButtonTextActive: {
-    color: "#fff",
-  },
-  scrollContent: {
-    paddingBottom: 24,
+  summaryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
   },
   summaryCard: {
-    marginHorizontal: 16,
-    marginVertical: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    backgroundColor: "#f0fdf4",
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: "#10b981",
+    width: "48.3%",
+    marginBottom: Spacing.sm + 4,
   },
-  summaryMainContent: {
-    marginBottom: 16,
+  filterWrap: {
+    marginBottom: Spacing.md,
   },
-  summaryLabel: {
-    fontSize: 13,
-    color: "#666",
-    marginBottom: 6,
+  heroPanel: {
+    marginBottom: Spacing.lg,
   },
-  summaryMainValue: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: "#10b981",
+  historyCard: {
+    marginBottom: Spacing.sm + 4,
   },
-  summaryDivider: {
-    height: 1,
-    backgroundColor: "#d1fae5",
-    marginVertical: 16,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  summaryItem: {
-    alignItems: "center",
-  },
-  summaryItemLabel: {
-    fontSize: 12,
-    color: "#666",
-    marginBottom: 4,
-  },
-  summaryItemValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#1a1a1a",
-  },
-  historySection: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 16,
-  },
-  historySectionTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#1a1a1a",
-    marginBottom: 12,
-  },
-  earningItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-  earningLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    gap: 12,
-  },
-  earningIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: "#f0f0f0",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  earningIconText: {
-    fontSize: 20,
-  },
-  earningDetails: {
-    flex: 1,
-  },
-  earningOrderId: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#1a1a1a",
-    marginBottom: 2,
-  },
-  earningDistance: {
-    fontSize: 12,
-    color: "#666",
-  },
-  earningRight: {
-    alignItems: "flex-end",
-    gap: 2,
-  },
-  earningAmount: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#10b981",
-  },
-  earningTime: {
-    fontSize: 11,
-    color: "#999",
-  },
-  separator: {
-    height: 1,
-    backgroundColor: "#e0e0e0",
-  },
-  placeholderMessage: {
-    paddingVertical: 24,
-    alignItems: "center",
-  },
-  placeholderText: {
-    fontSize: 13,
-    color: "#999",
-  },
-  breakdownSection: {
-    marginHorizontal: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  breakdownTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#1a1a1a",
-    marginBottom: 12,
-  },
-  breakdownItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 10,
-  },
-  breakdownLabel: {
-    fontSize: 13,
-    color: "#666",
-  },
-  breakdownValue: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#1a1a1a",
+  emptyState: {
+    marginTop: Spacing.sm,
   },
 });
 

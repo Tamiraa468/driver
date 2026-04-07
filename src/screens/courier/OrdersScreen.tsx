@@ -1,14 +1,21 @@
+import { Map, MapPin } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   FlatList,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import OrderCard from "../../components/OrderCard";
+import {
+  Colors,
+  FontSize,
+  Radius,
+  Spacing,
+} from "../../constants/design";
 import { CourierOrder } from "../../types/order";
 
 type OrderTab = "available" | "active" | "completed";
@@ -58,9 +65,9 @@ const MOCK_ACTIVE_ORDER: CourierOrder = {
   deliveryFee: 28000,
   totalPrice: 58000,
   status: "picked_up",
-  customerName: "John Doe",
+  customerName: "Батболд",
   customerPhone: "+976 9999 9999",
-  instructions: "Ring doorbell twice, leave at entrance",
+  instructions: "Хаалганы хонхыг хоёр дарж, үүдэнд үлдээнэ үү",
   createdAt: "2024-01-20T13:45:00",
   estimatedPickupTime: "2024-01-20T13:50:00",
   estimatedDeliveryTime: "2024-01-20T14:20:00",
@@ -99,22 +106,22 @@ const OrdersScreen: React.FC = () => {
 
   const handleAcceptOrder = (orderId: string) => {
     console.log("Accepted order:", orderId);
-    alert(`Order ${orderId} accepted!`);
+    alert(`Захиалга ${orderId} хүлээн авлаа!`);
   };
 
   const handleRejectOrder = (orderId: string) => {
     console.log("Rejected order:", orderId);
-    alert(`Order ${orderId} rejected.`);
+    alert(`Захиалга ${orderId}-аас татгалзлаа.`);
   };
 
   const handleMarkPickedUp = () => {
     setActiveOrderStatus("on_way");
-    alert("Marked as picked up. You're now on the way!");
+    alert("Авсан гэж тэмдэглэлээ. Та одоо хүргэх замдаа явж байна!");
   };
 
   const handleMarkDelivered = () => {
     setActiveOrderStatus("delivered");
-    alert("Order delivered! Thank you.");
+    alert("Захиалга хүргэгдлээ. Баярлалаа.");
   };
 
   const renderTabContent = () => {
@@ -147,15 +154,15 @@ const OrdersScreen: React.FC = () => {
 
           {/* Order Status */}
           <View style={styles.statusSection}>
-            <Text style={styles.statusSectionTitle}>Order Status</Text>
+            <Text style={styles.statusSectionTitle}>Захиалгын төлөв</Text>
             <View style={styles.statusTimeline}>
               <StatusStep
-                label="Picked Up"
+                label="Авсан"
                 isComplete={true}
                 isActive={activeOrderStatus === "picked_up"}
               />
               <StatusStep
-                label="On The Way"
+                label="Замдаа"
                 isComplete={
                   activeOrderStatus === "on_way" ||
                   activeOrderStatus === "delivered"
@@ -163,7 +170,7 @@ const OrdersScreen: React.FC = () => {
                 isActive={activeOrderStatus === "on_way"}
               />
               <StatusStep
-                label="Delivered"
+                label="Хүргэгдсэн"
                 isComplete={activeOrderStatus === "delivered"}
                 isActive={activeOrderStatus === "delivered"}
               />
@@ -172,15 +179,15 @@ const OrdersScreen: React.FC = () => {
 
           {/* Customer Info */}
           <View style={styles.customerSection}>
-            <Text style={styles.sectionTitle}>Customer Information</Text>
+            <Text style={styles.sectionTitle}>Харилцагчийн мэдээлэл</Text>
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Name</Text>
+              <Text style={styles.infoLabel}>Нэр</Text>
               <Text style={styles.infoValue}>
                 {MOCK_ACTIVE_ORDER.customerName}
               </Text>
             </View>
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Phone</Text>
+              <Text style={styles.infoLabel}>Утас</Text>
               <TouchableOpacity>
                 <Text style={[styles.infoValue, styles.phoneLink]}>
                   {MOCK_ACTIVE_ORDER.customerPhone}
@@ -188,7 +195,7 @@ const OrdersScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Instructions</Text>
+              <Text style={styles.infoLabel}>Тайлбар</Text>
               <Text style={styles.infoValue}>
                 {MOCK_ACTIVE_ORDER.instructions}
               </Text>
@@ -197,12 +204,12 @@ const OrdersScreen: React.FC = () => {
 
           {/* Map Placeholder */}
           <View style={styles.mapPlaceholder}>
-            <Text style={styles.mapPlaceholderText}>🗺️</Text>
+            <Map size={40} color={Colors.textSoft} strokeWidth={2} />
             <Text style={styles.mapPlaceholderSubtext}>
-              Map Integration Coming Soon
+              Газрын зургийн холболт удахгүй нэмэгдэнэ
             </Text>
             <Text style={styles.mapPlaceholderDistance}>
-              Distance: {MOCK_ACTIVE_ORDER.distance.toFixed(1)} km
+              Зай: {MOCK_ACTIVE_ORDER.distance.toFixed(1)} km
             </Text>
           </View>
 
@@ -213,7 +220,9 @@ const OrdersScreen: React.FC = () => {
                 style={[styles.actionButton, styles.onWayButton]}
                 onPress={handleMarkPickedUp}
               >
-                <Text style={styles.actionButtonText}>📍 On The Way</Text>
+                <Text style={styles.actionButtonText}>
+                  <MapPin size={14} color={Colors.accent} strokeWidth={2} /> Замдаа
+                </Text>
               </TouchableOpacity>
             )}
             {(activeOrderStatus === "picked_up" ||
@@ -222,12 +231,12 @@ const OrdersScreen: React.FC = () => {
                 style={[styles.actionButton, styles.deliverButton]}
                 onPress={handleMarkDelivered}
               >
-                <Text style={styles.actionButtonText}>✓ Mark Delivered</Text>
+                <Text style={styles.actionButtonText}>✓ Хүргэгдсэн гэж тэмдэглэх</Text>
               </TouchableOpacity>
             )}
             {activeOrderStatus === "delivered" && (
               <View style={styles.completedMessage}>
-                <Text style={styles.completedText}>✓ Order Completed</Text>
+                <Text style={styles.completedText}>✓ Захиалга дууссан</Text>
               </View>
             )}
           </View>
@@ -254,7 +263,7 @@ const OrdersScreen: React.FC = () => {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Orders</Text>
+          <Text style={styles.title}>Захиалгууд</Text>
         </View>
 
         {/* Tab Navigation */}
@@ -272,10 +281,10 @@ const OrdersScreen: React.FC = () => {
                 ]}
               >
                 {tab === "available"
-                  ? "Available"
+                  ? "Боломжит"
                   : tab === "active"
-                    ? "Active"
-                    : "Completed"}
+                    ? "Идэвхтэй"
+                    : "Дууссан"}
               </Text>
             </TouchableOpacity>
           ))}
@@ -330,25 +339,25 @@ const StatusStep: React.FC<StatusStepProps> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: Colors.background,
   },
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: Colors.background,
   },
   header: {
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.md,
     paddingTop: 12,
     paddingBottom: 12,
   },
   title: {
-    fontSize: 28,
+    fontSize: FontSize["2xl"],
     fontWeight: "700",
-    color: "#1a1a1a",
+    color: Colors.text,
   },
   tabNavigation: {
     flexDirection: "row",
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.md,
     paddingVertical: 12,
     gap: 8,
   },
@@ -356,39 +365,43 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: Radius.button,
     alignItems: "center",
-    backgroundColor: "#f0f0f0",
+    backgroundColor: Colors.primarySoft,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   tabActive: {
-    backgroundColor: "#28a745",
+    backgroundColor: Colors.primarySoftStrong,
+    borderColor: Colors.primary,
   },
   tabText: {
-    fontSize: 12,
+    fontSize: FontSize.xs,
     fontWeight: "600",
-    color: "#666",
+    color: Colors.textSoft,
   },
   tabTextActive: {
-    color: "#fff",
+    color: Colors.accent,
   },
   scrollContent: {
+    paddingTop: 8,
     paddingBottom: 24,
   },
   listContent: {
-    paddingTop: 8,
+    paddingTop: 12,
   },
   activeOrderContainer: {
     paddingBottom: 24,
   },
   statusSection: {
-    marginHorizontal: 16,
+    marginHorizontal: Spacing.md,
     marginTop: 20,
     marginBottom: 16,
   },
   statusSectionTitle: {
-    fontSize: 14,
+    fontSize: FontSize.sm,
     fontWeight: "700",
-    color: "#1a1a1a",
+    color: Colors.text,
     marginBottom: 16,
   },
   statusTimeline: {
@@ -403,76 +416,77 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#e0e0e0",
+    backgroundColor: Colors.border,
     alignItems: "center",
     justifyContent: "center",
   },
   statusDotComplete: {
-    backgroundColor: "#10b981",
+    backgroundColor: Colors.primary,
   },
   statusDotActive: {
-    backgroundColor: "#28a745",
+    backgroundColor: Colors.primaryDark,
     borderWidth: 2,
-    borderColor: "#fff",
-    boxShadow: "0px 0px 4px rgba(40, 167, 69, 0.3)",
-    elevation: 3,
+    borderColor: Colors.white,
+    elevation: 2,
   },
   statusDotText: {
-    color: "#fff",
+    color: Colors.accent,
     fontWeight: "700",
     fontSize: 14,
   },
   statusLabel: {
     fontSize: 13,
-    color: "#999",
+    color: Colors.textMuted,
     fontWeight: "500",
   },
   statusLabelActive: {
-    color: "#1a1a1a",
+    color: Colors.text,
     fontWeight: "600",
   },
   customerSection: {
-    marginHorizontal: 16,
+    marginHorizontal: Spacing.md,
     marginBottom: 16,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
+    backgroundColor: Colors.cardBg,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: FontSize.sm,
     fontWeight: "700",
-    color: "#1a1a1a",
+    color: Colors.text,
     marginBottom: 12,
   },
   infoRow: {
     marginBottom: 12,
   },
   infoLabel: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: FontSize.xs,
+    color: Colors.textSoft,
     marginBottom: 4,
   },
   infoValue: {
     fontSize: 13,
-    color: "#1a1a1a",
+    color: Colors.text,
     fontWeight: "500",
   },
   phoneLink: {
-    color: "#0066cc",
+    color: Colors.primaryPressed,
     textDecorationLine: "underline",
   },
   mapPlaceholder: {
-    marginHorizontal: 16,
+    marginHorizontal: Spacing.md,
     marginBottom: 16,
     paddingVertical: 48,
     paddingHorizontal: 16,
-    backgroundColor: "#f0f7ff",
-    borderRadius: 12,
+    backgroundColor: Colors.primarySoft,
+    borderRadius: Radius.card,
     alignItems: "center",
     borderWidth: 2,
     borderStyle: "dashed",
-    borderColor: "#0066cc",
+    borderColor: Colors.primary,
   },
   mapPlaceholderText: {
     fontSize: 48,
@@ -480,47 +494,47 @@ const styles = StyleSheet.create({
   },
   mapPlaceholderSubtext: {
     fontSize: 13,
-    color: "#666",
+    color: Colors.textSoft,
     marginBottom: 12,
   },
   mapPlaceholderDistance: {
-    fontSize: 12,
-    color: "#0066cc",
+    fontSize: FontSize.xs,
+    color: Colors.primaryPressed,
     fontWeight: "600",
   },
   actionButtons: {
-    marginHorizontal: 16,
+    marginHorizontal: Spacing.md,
     gap: 8,
   },
   actionButton: {
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: Radius.button,
     alignItems: "center",
     justifyContent: "center",
   },
   onWayButton: {
-    backgroundColor: "#ffc107",
+    backgroundColor: Colors.primarySoftStrong,
   },
   deliverButton: {
-    backgroundColor: "#28a745",
+    backgroundColor: Colors.primary,
   },
   actionButtonText: {
-    color: "#fff",
+    color: Colors.accent,
     fontSize: 15,
     fontWeight: "700",
   },
   completedMessage: {
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: "#d4edda",
-    borderRadius: 8,
+    backgroundColor: Colors.primarySoft,
+    borderRadius: Radius.button,
     alignItems: "center",
     borderLeftWidth: 4,
-    borderLeftColor: "#28a745",
+    borderLeftColor: Colors.primary,
   },
   completedText: {
-    color: "#155724",
+    color: Colors.primaryPressed,
     fontSize: 14,
     fontWeight: "600",
   },

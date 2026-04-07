@@ -1,9 +1,12 @@
+import "./global.css";
+
 import { StatusBar } from "expo-status-bar";
 import React from "react";
 import { StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { Colors } from "./src/constants/design";
 import { CourierAuthProvider } from "./src/context";
 import { CourierRootNavigator } from "./src/navigation";
 
@@ -23,5 +26,6 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Colors.background,
   },
 });

@@ -1,19 +1,21 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { DollarSign, Home, Package, User } from "lucide-react-native";
 import React from "react";
-import { StyleSheet, Text } from "react-native";
-
+import { Platform, StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  AvailableTasksScreen,
-  EarningsScreen,
-  HomeScreen,
-  OrdersScreen,
-  ProfileScreen,
-} from "../screens/courier";
+  Colors,
+  FontSize,
+  FontWeight,
+  Radius,
+  Shadow,
+} from "../constants/design";
+import { AvailableTasksScreen, EarningsScreen, HomeScreen, ProfileScreen } from "../screens/courier";
 
 export type CourierTabParamList = {
-  Available: undefined;
   Home: undefined;
-  Orders: undefined;
+  AvailableTasks: undefined;
+  Active: undefined;
   Earnings: undefined;
   Profile: undefined;
 };
@@ -21,43 +23,45 @@ export type CourierTabParamList = {
 const Tab = createBottomTabNavigator<CourierTabParamList>();
 
 const CourierTabs: React.FC = () => {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: "#28a745",
-        tabBarInactiveTintColor: "#8e8e93",
+        sceneStyle: {
+          backgroundColor: Colors.background,
+        },
+        tabBarStyle: {
+          ...styles.tabBar,
+          paddingBottom:
+            Platform.OS === "ios" ? 22 : Math.max(insets.bottom, 8) + 8,
+          height: Platform.OS === "ios" ? 86 : 64 + Math.max(insets.bottom, 0),
+        },
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.textMuted,
+        tabBarActiveBackgroundColor: Colors.primarySoft,
         tabBarLabelStyle: styles.tabBarLabel,
+        tabBarItemStyle: styles.tabBarItem,
       }}
     >
-      <Tab.Screen
-        name="Available"
-        component={AvailableTasksScreen}
-        options={{
-          tabBarLabel: "Available",
-          tabBarIcon: ({ color }) => (
-            <Text style={[styles.tabIcon, { color }]}>🎯</Text>
-          ),
-        }}
-      />
       <Tab.Screen
         name="Home"
         component={HomeScreen}
         options={{
-          tabBarLabel: "Home",
+          tabBarLabel: "Нүүр",
           tabBarIcon: ({ color }) => (
-            <Text style={[styles.tabIcon, { color }]}>🏠</Text>
+            <Home size={20} color={color} strokeWidth={2.1} />
           ),
         }}
       />
       <Tab.Screen
-        name="Orders"
-        component={OrdersScreen}
+        name="AvailableTasks"
+        component={AvailableTasksScreen}
         options={{
-          tabBarLabel: "Orders",
+          tabBarLabel: "Хүргэлт",
           tabBarIcon: ({ color }) => (
-            <Text style={[styles.tabIcon, { color }]}>📦</Text>
+            <Package size={20} color={color} strokeWidth={2.1} />
           ),
         }}
       />
@@ -65,9 +69,9 @@ const CourierTabs: React.FC = () => {
         name="Earnings"
         component={EarningsScreen}
         options={{
-          tabBarLabel: "Earnings",
+          tabBarLabel: "Орлого",
           tabBarIcon: ({ color }) => (
-            <Text style={[styles.tabIcon, { color }]}>💰</Text>
+            <DollarSign size={20} color={color} strokeWidth={2.1} />
           ),
         }}
       />
@@ -75,9 +79,9 @@ const CourierTabs: React.FC = () => {
         name="Profile"
         component={ProfileScreen}
         options={{
-          tabBarLabel: "Profile",
+          tabBarLabel: "Профайл",
           tabBarIcon: ({ color }) => (
-            <Text style={[styles.tabIcon, { color }]}>👤</Text>
+            <User size={20} color={color} strokeWidth={2.1} />
           ),
         }}
       />
@@ -87,19 +91,21 @@ const CourierTabs: React.FC = () => {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: "#fff",
+    backgroundColor: Colors.surface,
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
-    paddingBottom: 8,
-    paddingTop: 8,
-    height: 70,
+    borderTopColor: Colors.border,
+    paddingTop: 10,
+    ...Shadow.float,
   },
   tabBarLabel: {
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.semibold,
+    marginTop: 3,
   },
-  tabIcon: {
-    fontSize: 24,
+  tabBarItem: {
+    borderRadius: Radius.md,
+    marginHorizontal: 6,
+    marginVertical: 4,
   },
 });
 

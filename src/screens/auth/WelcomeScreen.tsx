@@ -1,57 +1,93 @@
-import React from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  SafeAreaView,
-  Image,
-} from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { MapPin, Rocket, UtensilsCrossed, Zap } from "lucide-react-native";
+import React from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Card, HeroPanel, PrimaryButton } from "../../components/ui";
+import {
+  Colors,
+  FontSize,
+  FontWeight,
+  Layout,
+  Radius,
+  Spacing,
+} from "../../constants/design";
 
 type WelcomeScreenProps = {
   navigation: NativeStackNavigationProp<any>;
 };
 
+const FEATURES = [
+  {
+    icon: UtensilsCrossed,
+    title: "Хялбар захиалга",
+    description: "Хоолны сонголтуудаа цэвэр, хөнгөн захиалгын урсгалаар үзээрэй.",
+  },
+  {
+    icon: Zap,
+    title: "Хурдан хүргэлт",
+    description: "Захиалгаа хянаж, сагсаас хүргэлт рүү саадгүй шилжинэ.",
+  },
+  {
+    icon: MapPin,
+    title: "Шууд шинэчлэлт",
+    description: "Хаяг болон хүргэлтийн явцаа нэг цэгээс тогтвортой харна.",
+  },
+];
+
 const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safe}>
       <View style={styles.content}>
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoEmoji}>🚀</Text>
-          <Text style={styles.title}>Delivery App</Text>
-          <Text style={styles.subtitle}>Хүргэлтийн үйлчилгээ</Text>
+        <View>
+          <HeroPanel
+            accessory={
+              <View style={styles.logoCircle}>
+                <Rocket size={32} color={Colors.text} strokeWidth={2} />
+              </View>
+            }
+            description="Ойлгомжтой, хурдан шийдвэр гаргах, уншихад тав тухтай хүргэлтийн энгийн орчин."
+            eyebrow="Хүргэлтийн орчин"
+            metrics={[
+              { label: "Захиалга", value: "24/7" },
+              { label: "Хяналт", value: "Шууд" },
+              { label: "Явц", value: "Энгийн" },
+            ]}
+            style={styles.hero}
+            title="Хүргэлтийн апп"
+          />
+
+          <View style={styles.features}>
+            {FEATURES.map((feature) => {
+              const Icon = feature.icon;
+
+              return (
+                <Card key={feature.title} style={styles.featureCard}>
+                  <View style={styles.featureIcon}>
+                    <Icon size={18} color={Colors.text} strokeWidth={2} />
+                  </View>
+                  <View style={styles.featureText}>
+                    <Text style={styles.featureTitle}>{feature.title}</Text>
+                    <Text style={styles.featureDescription}>
+                      {feature.description}
+                    </Text>
+                  </View>
+                </Card>
+              );
+            })}
+          </View>
         </View>
 
-        <View style={styles.featuresContainer}>
-          <View style={styles.featureItem}>
-            <Text style={styles.featureIcon}>🍔</Text>
-            <Text style={styles.featureText}>Олон төрлийн хоол</Text>
-          </View>
-          <View style={styles.featureItem}>
-            <Text style={styles.featureIcon}>⚡</Text>
-            <Text style={styles.featureText}>Хурдан хүргэлт</Text>
-          </View>
-          <View style={styles.featureItem}>
-            <Text style={styles.featureIcon}>📍</Text>
-            <Text style={styles.featureText}>Байршил хянах</Text>
-          </View>
-        </View>
-
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={styles.loginButton}
+        <View style={styles.buttons}>
+          <PrimaryButton
+            title="Нэвтрэх"
             onPress={() => navigation.navigate("Login")}
-          >
-            <Text style={styles.loginButtonText}>Нэвтрэх</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.registerButton}
+          />
+          <PrimaryButton
+            title="Бүртгүүлэх"
             onPress={() => navigation.navigate("Register")}
-          >
-            <Text style={styles.registerButtonText}>Бүртгүүлэх</Text>
-          </TouchableOpacity>
+            variant="secondary"
+          />
         </View>
       </View>
     </SafeAreaView>
@@ -59,76 +95,62 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safe: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: Colors.background,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
     justifyContent: "space-between",
-    paddingTop: 60,
-    paddingBottom: 40,
+    paddingHorizontal: Layout.screenPadding,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.xl,
   },
-  logoContainer: {
+  hero: {
+    marginBottom: Spacing.xl,
+  },
+  logoCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: Colors.border,
     alignItems: "center",
-    marginTop: 40,
+    justifyContent: "center",
   },
-  logoEmoji: {
-    fontSize: 80,
-    marginBottom: 16,
+  features: {
+    gap: Spacing.sm + 4,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#1a1a1a",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#666",
-  },
-  featuresContainer: {
+  featureCard: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    marginVertical: 40,
-  },
-  featureItem: {
     alignItems: "center",
   },
   featureIcon: {
-    fontSize: 32,
-    marginBottom: 8,
+    width: 42,
+    height: 42,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.sm + 4,
   },
   featureText: {
-    fontSize: 12,
-    color: "#666",
-    textAlign: "center",
+    flex: 1,
   },
-  buttonContainer: {
-    gap: 12,
+  featureTitle: {
+    fontSize: FontSize.base,
+    fontWeight: FontWeight.semibold,
+    color: Colors.text,
+    marginBottom: 2,
   },
-  loginButton: {
-    backgroundColor: "#007AFF",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
+  featureDescription: {
+    fontSize: FontSize.sm,
+    color: Colors.textSoft,
+    lineHeight: 20,
   },
-  loginButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  registerButton: {
-    backgroundColor: "#f0f0f0",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  registerButtonText: {
-    color: "#1a1a1a",
-    fontSize: 18,
-    fontWeight: "600",
+  buttons: {
+    gap: Spacing.sm + 4,
   },
 });
 

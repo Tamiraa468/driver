@@ -87,6 +87,7 @@ export interface AvailableTask {
   suggested_fee: number | null;
   receiver_name: string | null;
   receiver_phone: string | null;
+  receiver_email: string | null;
   created_at: string;
 }
 
@@ -97,7 +98,15 @@ export type DeliveryTaskStatus =
   | "assigned"
   | "picked_up"
   | "delivered"
-  | "cancelled";
+  | "cancelled"
+  | "completed";
+
+export type CourierTaskEarningStatus =
+  | DeliveryTaskStatus
+  | "claimed"
+  | "in_transit"
+  | "completed"
+  | "on_way";
 
 // Full Delivery Task - from delivery_tasks table
 export interface DeliveryTask {
@@ -117,12 +126,28 @@ export interface DeliveryTask {
   dropoff_contact_phone: string | null;
   distance_km: number | null;
   delivery_fee: number;
+  receiver_email: string | null;
   instructions: string | null;
   status: DeliveryTaskStatus;
   published_at: string | null;
   assigned_at: string | null;
   picked_up_at: string | null;
   delivered_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CourierDashboardTask {
+  id: string;
+  courier_id: string | null;
+  status: CourierTaskEarningStatus;
+  delivery_fee: number;
+  accepted_at: string | null;
+  assigned_at: string | null;
+  picked_up_at: string | null;
+  delivered_at: string | null;
+  pickup_address: string;
+  dropoff_address: string;
   created_at: string;
   updated_at: string;
 }
@@ -135,7 +160,17 @@ export interface ClaimTaskResponse {
   courier_id?: string;
 }
 
-export interface CourierProfile {
+// ePOD RPC response
+export interface EpodOtpResponse {
+  success: boolean;
+  message?: string;
+  task_id?: string;
+  otp_plain?: string;
+  customer_email?: string;
+  expires_at?: string;
+}
+
+export interface CourierSummaryProfile {
   id: string;
   name: string;
   phone: string;

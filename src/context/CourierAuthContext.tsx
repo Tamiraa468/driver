@@ -29,6 +29,7 @@ import * as courierAuthService from "../services/courierAuthService";
 import {
   AuthError,
   CourierAccessStatus,
+  KYCSubmitData,
   ProfileUpdateData,
   SignInData,
   SignUpData,
@@ -47,6 +48,8 @@ interface CourierAuthContextType {
   isAuthenticated: boolean;
   isApproved: boolean;
   isPending: boolean;
+  isKycRequired: boolean;
+  isKycSubmitted: boolean;
   isBlocked: boolean;
   error: AuthError | null;
 
@@ -56,6 +59,7 @@ interface CourierAuthContextType {
   signOut: () => Promise<void>;
   refreshStatus: () => Promise<void>;
   updateProfile: (data: ProfileUpdateData) => Promise<void>;
+  submitKYC: (data: KYCSubmitData) => Promise<void>;
   clearError: () => void;
 }
 
@@ -96,7 +100,11 @@ export const CourierAuthProvider: React.FC<CourierAuthProviderProps> = ({
   // Derived state
   const isAuthenticated = !!user;
   const isApproved = accessStatus?.isApproved ?? false;
-  const isPending = accessStatus?.status === "pending";
+  const isPending =
+    accessStatus?.status === "pending" ||
+    accessStatus?.status === "kyc_submitted";
+  const isKycRequired = accessStatus?.status === "pending";
+  const isKycSubmitted = accessStatus?.status === "kyc_submitted";
   const isBlocked = accessStatus?.status === "blocked";
 
   // ============================================================================
@@ -288,6 +296,23 @@ export const CourierAuthProvider: React.FC<CourierAuthProviderProps> = ({
     }
   }, []);
 
+  const submitKYC = useCallback(async (data: KYCSubmitData) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const result = await courierAuthService.submitKYC(data);
+      setUser(result.user);
+      setAccessStatus(result.accessStatus);
+    } catch (err) {
+      const authError = err as AuthError;
+      setError(authError);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const clearError = useCallback(() => {
     setError(null);
   }, []);
@@ -305,6 +330,8 @@ export const CourierAuthProvider: React.FC<CourierAuthProviderProps> = ({
       isAuthenticated,
       isApproved,
       isPending,
+      isKycRequired,
+      isKycSubmitted,
       isBlocked,
       error,
 
@@ -314,6 +341,7 @@ export const CourierAuthProvider: React.FC<CourierAuthProviderProps> = ({
       signOut,
       refreshStatus,
       updateProfile,
+      submitKYC,
       clearError,
     }),
     [
@@ -323,6 +351,8 @@ export const CourierAuthProvider: React.FC<CourierAuthProviderProps> = ({
       isAuthenticated,
       isApproved,
       isPending,
+      isKycRequired,
+      isKycSubmitted,
       isBlocked,
       error,
       signUp,
@@ -330,6 +360,7 @@ export const CourierAuthProvider: React.FC<CourierAuthProviderProps> = ({
       signOut,
       refreshStatus,
       updateProfile,
+      submitKYC,
       clearError,
     ],
   );
@@ -380,7 +411,7 @@ export function useDeliveryAccess(): boolean {
  * Useful for showing status-specific UI.
  */
 export function useApprovalStatus(): {
-  status: "approved" | "pending" | "blocked" | null;
+  status: "approved" | "pending" | "kyc_submitted" | "blocked" | null;
   message: string;
 } {
   const { accessStatus } = useCourierAuth();

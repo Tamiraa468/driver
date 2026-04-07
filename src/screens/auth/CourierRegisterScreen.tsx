@@ -1,39 +1,49 @@
-/**
- * Courier Registration Screen
- *
- * Production-grade registration screen for the courier app.
- * Automatically registers users with role='courier' and status='pending'.
- * Includes full name and email/password fields for courier profile.
- */
-
 import { zodResolver } from "@hookform/resolvers/zod";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Bike, Eye, EyeOff } from "lucide-react-native";
 import React, { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { z } from "zod";
+import {
+  Card,
+  FormField,
+  PrimaryButton,
+  ScreenHeader,
+  StatusBadge,
+} from "../../components/ui";
+import {
+  Colors,
+  FontSize,
+  FontWeight,
+  Layout,
+  Radius,
+  Spacing,
+} from "../../constants/design";
 import { useCourierAuth } from "../../context/CourierAuthContext";
 import { AuthError } from "../../types";
 
-// Validation schema
 const registerSchema = z
   .object({
     full_name: z
       .string()
       .min(2, "Нэр хамгийн багадаа 2 тэмдэгт байх ёстой")
       .max(100, "Нэр хэт урт байна"),
+    phone: z
+      .string()
+      .regex(/^[0-9]{8}$/, "Утасны дугаар 8 оронтой тоо байх ёстой")
+      .optional()
+      .or(z.literal("")),
     email: z
       .string()
       .min(1, "И-мэйл хаяг оруулна уу")
@@ -57,9 +67,6 @@ type CourierRegisterScreenProps = {
   navigation: NativeStackNavigationProp<any>;
 };
 
-/**
- * Maps auth error codes to user-friendly Mongolian messages
- */
 function getErrorMessage(error: AuthError): string {
   switch (error.code) {
     case "INVALID_CREDENTIALS":
@@ -88,6 +95,7 @@ const CourierRegisterScreen: React.FC<CourierRegisterScreenProps> = ({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       full_name: "",
+      phone: "",
       email: "",
       password: "",
       confirmPassword: "",
@@ -105,223 +113,202 @@ const CourierRegisterScreen: React.FC<CourierRegisterScreenProps> = ({
         email: data.email,
         password: data.password,
         full_name: data.full_name,
-        // Role is automatically set to 'courier' by the service
+        phone: data.phone || undefined,
       });
-
-      // Show success message - user will see pending screen
-      Alert.alert(
-        "Амжилттай бүртгэгдлээ!",
-        "Таны бүртгэл баталгаажуулалт хүлээж байна. Баталгаажсаны дараа та хүргэлт хийх боломжтой болно.",
-        [{ text: "Ойлголоо", style: "default" }],
-      );
     } catch (error) {
       const authError = error as AuthError;
       Alert.alert("Алдаа", getErrorMessage(authError));
     }
   };
 
+  const passwordToggle = (
+    <TouchableOpacity
+      activeOpacity={0.72}
+      disabled={isLoading}
+      onPress={() => setShowPassword((value) => !value)}
+      style={styles.eyeButton}
+    >
+      {showPassword ? (
+        <EyeOff size={18} color={Colors.textSoft} strokeWidth={2} />
+      ) : (
+        <Eye size={18} color={Colors.textSoft} strokeWidth={2} />
+      )}
+    </TouchableOpacity>
+  );
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardView}
+        style={styles.flex}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.backButton}
-            >
-              <Text style={styles.backButtonText}>←</Text>
-            </TouchableOpacity>
-            <View style={styles.logoContainer}>
-              <Text style={styles.logoEmoji}>🚴</Text>
+          <ScreenHeader
+            title="Курьер бүртгүүлэх"
+            subtitle="Эхлээд курьерын бүртгэлээ үүсгэнэ. Дараагийн алхамд KYC бичиг баримтаа оруулна."
+            onBackPress={() => navigation.goBack()}
+          />
+
+          <Card style={styles.introCard} variant="subtle">
+            <View style={styles.introIcon}>
+              <Bike size={28} color={Colors.primaryDark} strokeWidth={2} />
             </View>
-            <Text style={styles.title}>Курьер бүртгүүлэх</Text>
-            <Text style={styles.subtitle}>
-              Бүртгэлийг баталгаажуулсны дараа хүргэлт эхлүүлэх боломжтой
+            <Text style={styles.introTitle}>Курьер бүртгүүлэх</Text>
+            <Text style={styles.introText}>
+              Бүртгэлийг үүсгэсний дараа бичиг баримтаа илгээж, хяналтад оруулах
+              дараагийн алхам руу орно.
             </Text>
-          </View>
+            <StatusBadge label="2 алхмын 1" status="info" />
+          </Card>
 
-          {/* Form */}
-          <View style={styles.form}>
-            {/* Full Name Input */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Бүтэн нэр *</Text>
-              <Controller
-                control={control}
-                name="full_name"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={[
-                      styles.input,
-                      errors.full_name && styles.inputError,
-                    ]}
-                    placeholder="Овог Нэр"
-                    placeholderTextColor="#999"
-                    autoCapitalize="words"
-                    autoCorrect={false}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                    editable={!isLoading}
-                  />
-                )}
-              />
-              {errors.full_name && (
-                <Text style={styles.errorText}>{errors.full_name.message}</Text>
-              )}
-            </View>
-
-            {/* Email Input */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>И-мэйл *</Text>
-              <Controller
-                control={control}
-                name="email"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={[styles.input, errors.email && styles.inputError]}
-                    placeholder="courier@example.com"
-                    placeholderTextColor="#999"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    autoComplete="email"
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                    editable={!isLoading}
-                  />
-                )}
-              />
-              {errors.email && (
-                <Text style={styles.errorText}>{errors.email.message}</Text>
-              )}
-            </View>
-
-            {/* Password Input */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Нууц үг *</Text>
-              <View style={styles.passwordContainer}>
-                <Controller
-                  control={control}
-                  name="password"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <TextInput
-                      style={[
-                        styles.input,
-                        styles.passwordInput,
-                        errors.password && styles.inputError,
-                      ]}
-                      placeholder="••••••••"
-                      placeholderTextColor="#999"
-                      secureTextEntry={!showPassword}
-                      autoComplete="new-password"
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      value={value}
-                      editable={!isLoading}
-                    />
-                  )}
+          <Card style={styles.formCard}>
+            <Controller
+              control={control}
+              name="full_name"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <FormField
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  containerStyle={styles.field}
+                  editable={!isLoading}
+                  errorText={errors.full_name?.message}
+                  label="Бүтэн нэр *"
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  placeholder="Овог Нэр"
+                  value={value}
                 />
-                <TouchableOpacity
-                  style={styles.showPasswordButton}
-                  onPress={() => setShowPassword(!showPassword)}
-                  disabled={isLoading}
-                >
-                  <Text style={styles.showPasswordText}>
-                    {showPassword ? "🙈" : "👁️"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              {errors.password && (
-                <Text style={styles.errorText}>{errors.password.message}</Text>
               )}
-              <Text style={styles.passwordHint}>
-                Хамгийн багадаа 8 тэмдэгт, том үсэг, жижиг үсэг, тоо орсон байх
-              </Text>
-            </View>
+            />
 
-            {/* Confirm Password Input */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Нууц үг давтах *</Text>
-              <Controller
-                control={control}
-                name="confirmPassword"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={[
-                      styles.input,
-                      errors.confirmPassword && styles.inputError,
-                    ]}
-                    placeholder="••••••••"
-                    placeholderTextColor="#999"
-                    secureTextEntry={!showPassword}
-                    autoComplete="new-password"
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                    editable={!isLoading}
-                  />
-                )}
-              />
-              {errors.confirmPassword && (
-                <Text style={styles.errorText}>
-                  {errors.confirmPassword.message}
-                </Text>
+            <Controller
+              control={control}
+              name="email"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <FormField
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  autoCorrect={false}
+                  containerStyle={styles.field}
+                  editable={!isLoading}
+                  errorText={errors.email?.message}
+                  keyboardType="email-address"
+                  label="И-мэйл *"
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  placeholder="courier@example.com"
+                  value={value}
+                />
               )}
-            </View>
+            />
 
-            {/* Terms Agreement */}
+            <Controller
+              control={control}
+              name="phone"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <FormField
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  containerStyle={styles.field}
+                  editable={!isLoading}
+                  errorText={errors.phone?.message}
+                  keyboardType="phone-pad"
+                  label="Утасны дугаар"
+                  maxLength={8}
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  placeholder="99119911"
+                  value={value}
+                />
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <FormField
+                  autoComplete="new-password"
+                  containerStyle={styles.field}
+                  editable={!isLoading}
+                  errorText={errors.password?.message}
+                  helperText="Хамгийн багадаа 8 тэмдэгт, том үсэг, жижиг үсэг, тоо орсон байх"
+                  label="Нууц үг *"
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  placeholder="••••••••"
+                  rightElement={passwordToggle}
+                  secureTextEntry={!showPassword}
+                  value={value}
+                />
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="confirmPassword"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <FormField
+                  autoComplete="new-password"
+                  containerStyle={styles.field}
+                  editable={!isLoading}
+                  errorText={errors.confirmPassword?.message}
+                  label="Нууц үг давтах *"
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  placeholder="••••••••"
+                  rightElement={passwordToggle}
+                  secureTextEntry={!showPassword}
+                  value={value}
+                />
+              )}
+            />
+
             <TouchableOpacity
-              style={styles.termsContainer}
-              onPress={() => setAgreedToTerms(!agreedToTerms)}
+              activeOpacity={0.78}
               disabled={isLoading}
+              onPress={() => setAgreedToTerms((value) => !value)}
+              style={styles.termsRow}
             >
               <View
                 style={[
                   styles.checkbox,
-                  agreedToTerms && styles.checkboxChecked,
+                  agreedToTerms ? styles.checkboxChecked : null,
                 ]}
               >
-                {agreedToTerms && <Text style={styles.checkmark}>✓</Text>}
+                {agreedToTerms ? <Text style={styles.checkmark}>✓</Text> : null}
               </View>
-              <Text style={styles.termsText}>
-                <Text style={styles.termsLink}>Үйлчилгээний нөхцөл</Text> болон{" "}
-                <Text style={styles.termsLink}>Нууцлалын бодлого</Text>-г
-                зөвшөөрч байна
-              </Text>
+              <View style={styles.termsBody}>
+                <Text style={styles.termsText}>
+                  <Text style={styles.termsLink}>Үйлчилгээний нөхцөл</Text> болон{" "}
+                  <Text style={styles.termsLink}>Нууцлалын бодлого</Text>-г
+                  зөвшөөрч байна
+                </Text>
+                <Text style={styles.termsHint}>
+                  Бүртгэл баталгаажсаны дараа л хүргэлтийн ажил эхэлнэ.
+                </Text>
+              </View>
             </TouchableOpacity>
 
-            {/* Submit Button */}
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                (isLoading || !agreedToTerms) && styles.submitButtonDisabled,
-              ]}
+            <PrimaryButton
+              title="Бүртгүүлэх"
               onPress={handleSubmit(onSubmit)}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.submitButtonText}>Бүртгүүлэх</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+              disabled={!agreedToTerms}
+              loading={isLoading}
+              style={styles.submitButton}
+            />
+          </Card>
 
-          {/* Footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>Бүртгэлтэй юу? </Text>
             <TouchableOpacity
-              onPress={() => navigation.replace("CourierLogin")}
+              activeOpacity={0.72}
               disabled={isLoading}
+              onPress={() => navigation.replace("CourierLogin")}
             >
               <Text style={styles.footerLink}>Нэвтрэх</Text>
             </TouchableOpacity>
@@ -333,165 +320,119 @@ const CourierRegisterScreen: React.FC<CourierRegisterScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safe: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: Colors.background,
   },
-  keyboardView: {
+  flex: {
     flex: 1,
   },
-  scrollContent: {
+  content: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingHorizontal: Layout.screenPadding,
+    paddingBottom: Spacing.xxl,
   },
-  header: {
-    marginTop: 20,
-    marginBottom: 30,
+  introCard: {
     alignItems: "center",
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.md,
   },
-  backButton: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-  },
-  backButtonText: {
-    fontSize: 28,
-    color: "#007AFF",
-  },
-  logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#f0f7ff",
+  introIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.primarySoft,
+    alignItems: "center",
     justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
+    marginBottom: Spacing.md,
   },
-  logoEmoji: {
-    fontSize: 40,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#1a1a1a",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "#666",
+  introTitle: {
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.bold,
+    color: Colors.text,
+    marginBottom: Spacing.xs + 2,
     textAlign: "center",
-    paddingHorizontal: 20,
   },
-  form: {
-    gap: 18,
+  introText: {
+    fontSize: FontSize.sm,
+    color: Colors.textSoft,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: Spacing.md,
   },
-  inputContainer: {
-    gap: 6,
+  formCard: {
+    marginBottom: Spacing.lg,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1a1a1a",
+  field: {
+    marginBottom: Spacing.md,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    backgroundColor: "#f9f9f9",
-    color: "#1a1a1a",
+  eyeButton: {
+    width: 28,
+    height: 28,
+    borderRadius: Radius.full,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  inputError: {
-    borderColor: "#ff3b30",
-  },
-  passwordContainer: {
-    position: "relative",
-  },
-  passwordInput: {
-    paddingRight: 50,
-  },
-  showPasswordButton: {
-    position: "absolute",
-    right: 16,
-    top: 14,
-  },
-  showPasswordText: {
-    fontSize: 20,
-  },
-  passwordHint: {
-    fontSize: 11,
-    color: "#888",
-    marginTop: 2,
-  },
-  errorText: {
-    color: "#ff3b30",
-    fontSize: 12,
-  },
-  termsContainer: {
+  termsRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 12,
-    marginTop: 8,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.md,
   },
   checkbox: {
     width: 22,
     height: 22,
-    borderWidth: 2,
-    borderColor: "#e0e0e0",
-    borderRadius: 6,
-    justifyContent: "center",
+    borderRadius: 7,
+    borderWidth: 1.5,
+    borderColor: Colors.borderStrong,
+    backgroundColor: Colors.surfaceAlt,
     alignItems: "center",
-    backgroundColor: "#f9f9f9",
+    justifyContent: "center",
+    marginTop: 2,
+    marginRight: Spacing.sm + 4,
   },
   checkboxChecked: {
-    backgroundColor: "#007AFF",
-    borderColor: "#007AFF",
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   checkmark: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "bold",
+    fontSize: FontSize.xs,
+    fontWeight: FontWeight.bold,
+    color: Colors.white,
+  },
+  termsBody: {
+    flex: 1,
   },
   termsText: {
-    flex: 1,
-    fontSize: 13,
-    color: "#666",
-    lineHeight: 18,
+    fontSize: FontSize.sm,
+    color: Colors.textSoft,
+    lineHeight: 20,
   },
   termsLink: {
-    color: "#007AFF",
+    color: Colors.primaryDark,
+    fontWeight: FontWeight.semibold,
+  },
+  termsHint: {
+    marginTop: 4,
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    lineHeight: 17,
   },
   submitButton: {
-    backgroundColor: "#007AFF",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 10,
-  },
-  submitButtonDisabled: {
-    opacity: 0.5,
-  },
-  submitButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
+    marginTop: Spacing.xs,
   },
   footer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 30,
   },
   footerText: {
-    color: "#666",
-    fontSize: 14,
+    fontSize: FontSize.sm,
+    color: Colors.textSoft,
   },
   footerLink: {
-    color: "#007AFF",
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+    color: Colors.primaryDark,
   },
 });
 

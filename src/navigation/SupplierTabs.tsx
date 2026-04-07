@@ -1,7 +1,8 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Text } from "react-native";
+import { Box, ClipboardList, LayoutDashboard, User } from "lucide-react-native";
 
+import { Colors } from "../constants/design";
 import {
   DashboardScreen,
   ProductsScreen,
@@ -24,15 +25,15 @@ const SupplierTabs: React.FC = () => {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: "#fff",
+          backgroundColor: Colors.surface,
           borderTopWidth: 1,
-          borderTopColor: "#e0e0e0",
+          borderTopColor: Colors.border,
           paddingBottom: 8,
           paddingTop: 8,
           height: 70,
         },
-        tabBarActiveTintColor: "#ff9800",
-        tabBarInactiveTintColor: "#8e8e93",
+        tabBarActiveTintColor: Colors.text,
+        tabBarInactiveTintColor: Colors.textMuted,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: "500",
@@ -44,7 +45,9 @@ const SupplierTabs: React.FC = () => {
         component={DashboardScreen}
         options={{
           tabBarLabel: "Самбар",
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>📊</Text>,
+          tabBarIcon: ({ color }) => (
+            <LayoutDashboard size={20} color={color} strokeWidth={2} />
+          ),
         }}
       />
       <Tab.Screen
@@ -52,7 +55,9 @@ const SupplierTabs: React.FC = () => {
         component={ProductsScreen}
         options={{
           tabBarLabel: "Бүтээгдэхүүн",
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>🍔</Text>,
+          tabBarIcon: ({ color }) => (
+            <Box size={20} color={color} strokeWidth={2} />
+          ),
         }}
       />
       <Tab.Screen
@@ -60,7 +65,9 @@ const SupplierTabs: React.FC = () => {
         component={OrdersScreen}
         options={{
           tabBarLabel: "Захиалга",
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>📦</Text>,
+          tabBarIcon: ({ color }) => (
+            <ClipboardList size={20} color={color} strokeWidth={2} />
+          ),
         }}
       />
       <Tab.Screen
@@ -68,7 +75,9 @@ const SupplierTabs: React.FC = () => {
         component={ProfileScreen}
         options={{
           tabBarLabel: "Профайл",
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>👤</Text>,
+          tabBarIcon: ({ color }) => (
+            <User size={20} color={color} strokeWidth={2} />
+          ),
         }}
       />
     </Tab.Navigator>

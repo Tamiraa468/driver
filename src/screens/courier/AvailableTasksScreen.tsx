@@ -1,463 +1,367 @@
 import { RealtimeChannel } from "@supabase/supabase-js";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import {
+  CircleAlert,
+  ClipboardList,
+  Package,
+  RefreshCcw,
+} from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { CourierRootStackParamList } from "../../navigation/CourierRootNavigator";
 import {
-  claimDeliveryTask,
-  fetchAvailableTasks,
-  subscribeToAvailableTasks,
+  Card,
+  ListItemCard,
+  PrimaryButton,
+  ScreenHeader,
+  StateView,
+} from "../../components/ui";
+import {
+  Colors,
+  FontSize,
+  FontWeight,
+  Layout,
+  Spacing,
+} from "../../constants/design";
+import {
+  fetchCourierAssignedTasks,
+  subscribeToCourierTasks,
 } from "../../services/deliveryTaskService";
-import { AvailableTask } from "../../types/order";
+import { DeliveryTask, DeliveryTaskStatus } from "../../types/order";
+
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; tone: "success" | "warning" | "info" | "default" }
+> = {
+  assigned: { label: "Хуваарилагдсан", tone: "info" },
+  picked_up: { label: "Авсан", tone: "warning" },
+  delivered: { label: "Хүргэгдсэн", tone: "success" },
+};
+
+function getStatusConfig(status: DeliveryTaskStatus) {
+  return STATUS_CONFIG[status] ?? { label: status, tone: "default" as const };
+}
+
+function formatTime(dateString: string | null): string {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+
+  if (diffMins < 1) return "Саяхан";
+  if (diffMins < 60) return `${diffMins} мин өмнө`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours} цаг өмнө`;
+  return `${Math.floor(diffHours / 24)} өдөр өмнө`;
+}
+
+function isActiveStatus(status: DeliveryTaskStatus): boolean {
+  return status === "assigned" || status === "picked_up";
+}
+
+type NavProp = NativeStackNavigationProp<CourierRootStackParamList>;
 
 export default function AvailableTasksScreen() {
-  const [tasks, setTasks] = useState<AvailableTask[]>([]);
+  const navigation = useNavigation<NavProp>();
+  const [tasks, setTasks] = useState<DeliveryTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [claimingTaskId, setClaimingTaskId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load tasks on mount
-  useEffect(() => {
-    loadTasks();
+  const loadTasks = useCallback(async () => {
+    try {
+      setError(null);
+      const data = await fetchCourierAssignedTasks();
+      setTasks(data);
+    } catch (loadError) {
+      console.error("[MyAssignedTasks] Error loading tasks:", loadError);
+      setError("Миний хүргэлтүүдийг ачаалж чадсангүй.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
-  // Set up real-time subscription
+  useEffect(() => {
+    void loadTasks();
+  }, [loadTasks]);
+
   useEffect(() => {
     let subscription: RealtimeChannel | null = null;
 
     const setupSubscription = async () => {
-      subscription = subscribeToAvailableTasks((updatedTasks) => {
+      subscription = subscribeToCourierTasks((updatedTasks) => {
+        setError(null);
         setTasks(updatedTasks);
       });
     };
 
-    setupSubscription();
+    void setupSubscription();
 
     return () => {
       if (subscription) {
-        subscription.unsubscribe();
+        void subscription.unsubscribe();
       }
     };
   }, []);
 
-  const loadTasks = async () => {
-    try {
-      setLoading(true);
-      const data = await fetchAvailableTasks();
-      setTasks(data);
-    } catch (error) {
-      console.error("Error loading tasks:", error);
-      Alert.alert("Error", "Failed to load available tasks");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadTasks();
-    setRefreshing(false);
-  }, []);
+  }, [loadTasks]);
 
-  const handleClaimTask = async (taskId: string) => {
-    try {
-      setClaimingTaskId(taskId);
+  const activeTasks = tasks.filter((t) => isActiveStatus(t.status));
 
-      const result = await claimDeliveryTask(taskId);
+  const header = (
+    <View>
+      <ScreenHeader
+        title="Миний хүргэлтүүд"
+        subtitle="Танд хуваарилагдсан хүргэлтүүдийг эндээс хянаарай."
+      />
 
-      if (result.success) {
-        Alert.alert(
-          "Success! 🎉",
-          "Task assigned to you. Check your Active Deliveries.",
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                // Remove task from list immediately for better UX
-                setTasks((prev) => prev.filter((t) => t.task_id !== taskId));
-              },
-            },
-          ],
-        );
-      } else {
-        Alert.alert("Unable to Claim", result.message);
-        // Refresh list in case task was claimed by someone else
-        await loadTasks();
-      }
-    } catch (error) {
-      console.error("Error claiming task:", error);
-      Alert.alert("Error", "Failed to claim task. Please try again.");
-    } finally {
-      setClaimingTaskId(null);
-    }
-  };
-
-  const formatFee = (fee: number) => {
-    return `₮${fee.toLocaleString()}`;
-  };
-
-  const formatPackageValue = (value: number | null) => {
-    if (!value) return null;
-    return `₮${value.toLocaleString()}`;
-  };
-
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${Math.floor(diffHours / 24)}d ago`;
-  };
-
-  const renderTaskCard = ({ item }: { item: AvailableTask }) => {
-    const isClaimingThis = claimingTaskId === item.task_id;
-
-    return (
-      <View style={styles.card}>
-        {/* Header */}
-        <View style={styles.cardHeader}>
-          <View style={styles.feeContainer}>
-            <Text style={styles.feeLabel}>Delivery Fee</Text>
-            <Text style={styles.feeAmount}>{formatFee(item.delivery_fee)}</Text>
-          </View>
-          <View style={styles.badgeContainer}>
-            <Text style={styles.badge}>Available</Text>
-            <Text style={styles.timeAgo}>{formatTime(item.created_at)}</Text>
-          </View>
-        </View>
-
-        {/* Package Value */}
-        {item.package_value && (
-          <View style={styles.packageValueRow}>
-            <Text style={styles.packageIcon}>📦</Text>
-            <Text style={styles.packageText}>
-              Package Value: {formatPackageValue(item.package_value)}
+      <Card style={styles.summaryCard} variant="subtle">
+        <Text style={styles.summaryLabel}>Хуваарилагдсан хүргэлтүүд</Text>
+        <Text style={styles.summaryValue}>
+          {tasks.length.toLocaleString()} хүргэлт
+        </Text>
+        {activeTasks.length > 0 && (
+          <View style={styles.activeBadgeRow}>
+            <View style={styles.activeDot} />
+            <Text style={styles.activeText}>
+              {activeTasks.length} идэвхтэй хүргэлт
             </Text>
           </View>
         )}
+      </Card>
 
-        {/* Pickup Location */}
-        <View style={styles.locationRow}>
-          <Text style={styles.locationIcon}>📍</Text>
-          <View style={styles.locationDetails}>
-            <Text style={styles.locationLabel}>Pickup</Text>
-            <Text style={styles.locationAddress}>
-              {item.pickup_address || "Address not available"}
-            </Text>
-            {item.pickup_note && (
-              <Text style={styles.locationNote}>Note: {item.pickup_note}</Text>
-            )}
+      {error ? (
+        <Card style={styles.errorCard} variant="subtle">
+          <View style={styles.errorRow}>
+            <CircleAlert size={16} color={Colors.danger} strokeWidth={2} />
+            <Text style={styles.errorText}>{error}</Text>
           </View>
-        </View>
-
-        {/* Dropoff Location */}
-        <View style={styles.locationRow}>
-          <Text style={styles.locationIcon}>🏁</Text>
-          <View style={styles.locationDetails}>
-            <Text style={styles.locationLabel}>Dropoff</Text>
-            <Text style={styles.locationAddress}>
-              {item.dropoff_address || "Address not available"}
-            </Text>
-            {item.dropoff_note && (
-              <Text style={styles.locationNote}>Note: {item.dropoff_note}</Text>
-            )}
-            {item.receiver_name && (
-              <Text style={styles.receiverInfo}>To: {item.receiver_name}</Text>
-            )}
-            {item.receiver_phone && (
-              <Text style={styles.receiverInfo}>📞 {item.receiver_phone}</Text>
-            )}
-          </View>
-        </View>
-
-        {/* Notes/Instructions */}
-        {item.note && (
-          <View style={styles.instructionsContainer}>
-            <Text style={styles.instructionsLabel}>📝 Note:</Text>
-            <Text style={styles.instructionsText}>{item.note}</Text>
-          </View>
-        )}
-
-        {/* Accept Button */}
-        <TouchableOpacity
-          style={[
-            styles.acceptButton,
-            isClaimingThis && styles.acceptButtonDisabled,
-          ]}
-          onPress={() => handleClaimTask(item.task_id)}
-          disabled={isClaimingThis}
-        >
-          {isClaimingThis ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.acceptButtonText}>Accept Delivery</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    );
-  };
+        </Card>
+      ) : null}
+    </View>
+  );
 
   if (loading && !refreshing) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading available tasks...</Text>
-      </View>
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.stateWrap}>
+          <ScreenHeader
+            title="Миний хүргэлтүүд"
+            subtitle="Танд хуваарилагдсан хүргэлтүүдийг эндээс хянаарай."
+          />
+          <StateView
+            loading
+            title="Хүргэлтүүдийг ачааллаж байна..."
+            description="Танд хуваарилагдсан хүргэлтүүдийг шалгаж байна."
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error && tasks.length === 0) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.stateWrap}>
+          <ScreenHeader
+            title="Миний хүргэлтүүд"
+            subtitle="Танд хуваарилагдсан хүргэлтүүдийг эндээс хянаарай."
+          />
+          <StateView
+            icon={<RefreshCcw size={22} color={Colors.danger} strokeWidth={2} />}
+            title="Хүргэлтүүдийг ачаалж чадсангүй"
+            description="Дахин оролдож шинэчилнэ үү."
+            actionLabel="Дахин оролдох"
+            onActionPress={() => {
+              setLoading(true);
+              void loadTasks();
+            }}
+          />
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Available Tasks</Text>
-        <Text style={styles.headerSubtitle}>
-          {tasks.length} {tasks.length === 1 ? "task" : "tasks"} available
-        </Text>
-      </View>
+    <SafeAreaView style={styles.safe}>
+      <FlatList
+        data={tasks}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => {
+          const { label: statusLabel, tone: statusTone } = getStatusConfig(item.status);
+          const active = isActiveStatus(item.status);
+          const orderId = item.order_id ?? item.id;
+          const title =
+            item.dropoff_contact_name ||
+            `Захиалга #${orderId.slice(0, 8).toUpperCase()}`;
 
-      {/* Task List */}
-      {tasks.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>📦</Text>
-          <Text style={styles.emptyTitle}>No tasks available</Text>
-          <Text style={styles.emptySubtitle}>
-            New delivery tasks will appear here
-          </Text>
-          <TouchableOpacity style={styles.refreshButton} onPress={loadTasks}>
-            <Text style={styles.refreshButtonText}>Refresh</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={tasks}
-          renderItem={renderTaskCard}
-          keyExtractor={(item) => item.task_id}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-        />
-      )}
-    </View>
+          const actionLabel =
+            item.status === "assigned"
+              ? "Дэлгэрэнгүй"
+              : item.status === "picked_up"
+                ? "Хүргэлт хянах"
+                : "Дэлгэрэнгүй";
+
+          const handlePress = () => {
+            if (item.status === "picked_up") {
+              navigation.navigate("ActiveTracking", { taskId: item.id });
+            } else {
+              navigation.navigate("DeliveryDetails", { taskId: item.id });
+            }
+          };
+
+          return (
+            <ListItemCard
+              amountText={`₮${item.delivery_fee.toLocaleString()}`}
+              amountTone="primary"
+              badgeLabel={statusLabel}
+              badgeTone={statusTone}
+              leading={
+                <View style={[styles.leadingIcon, active && styles.leadingIconActive]}>
+                  <Package
+                    size={18}
+                    color={active ? Colors.white : Colors.primary}
+                    strokeWidth={2}
+                  />
+                </View>
+              }
+              style={[styles.taskCard, active && styles.taskCardActive]}
+              subtitle={`Хуваарилагдсан: ${formatTime(item.assigned_at)}`}
+              title={title}
+              rows={[
+                { label: "Захиалга", value: `#${orderId.slice(0, 8).toUpperCase()}` },
+                { label: "Авах цэг", value: item.pickup_address || "Хаягийн мэдээлэлгүй" },
+                { label: "Хүргэх цэг", value: item.dropoff_address || "Хаягийн мэдээлэлгүй" },
+                ...(item.dropoff_contact_phone
+                  ? [{ label: "Утас", value: item.dropoff_contact_phone }]
+                  : []),
+              ]}
+              footer={
+                <PrimaryButton
+                  title={actionLabel}
+                  onPress={handlePress}
+                />
+              }
+            />
+          );
+        }}
+        ListHeaderComponent={header}
+        ListEmptyComponent={
+          <StateView
+            icon={<ClipboardList size={24} color={Colors.primary} strokeWidth={2} />}
+            title="Хуваарилагдсан хүргэлт алга"
+            description="Танд одоогоор хуваарилагдсан хүргэлт байхгүй байна."
+            style={styles.emptyState}
+          />
+        }
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safe: {
     flex: 1,
-    backgroundColor: "#F5F7FA",
+    backgroundColor: Colors.background,
   },
-  centerContainer: {
+  stateWrap: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F5F7FA",
+    paddingHorizontal: Layout.screenPadding,
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: "#666",
+  content: {
+    paddingHorizontal: Layout.screenPadding,
+    paddingBottom: Spacing.xxl,
   },
-  header: {
-    backgroundColor: "#fff",
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E5EA",
+  summaryCard: {
+    marginBottom: Spacing.md,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#000",
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: "#666",
-  },
-  listContent: {
-    padding: 16,
-  },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 16,
-  },
-  feeContainer: {
-    flex: 1,
-  },
-  feeLabel: {
-    fontSize: 12,
-    color: "#666",
-    marginBottom: 4,
-  },
-  feeAmount: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#34C759",
-  },
-  badgeContainer: {
-    alignItems: "flex-end",
-  },
-  badge: {
-    backgroundColor: "#E3F2FD",
-    color: "#007AFF",
-    fontSize: 12,
-    fontWeight: "600",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  timeAgo: {
-    fontSize: 11,
-    color: "#999",
-    marginTop: 4,
-  },
-  packageValueRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: "#F8F9FA",
-    borderRadius: 8,
-  },
-  packageIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  packageText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
-  },
-  locationRow: {
-    flexDirection: "row",
-    marginBottom: 12,
-  },
-  locationIcon: {
-    fontSize: 20,
-    marginRight: 12,
-    marginTop: 2,
-  },
-  locationDetails: {
-    flex: 1,
-  },
-  locationLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#666",
-    marginBottom: 4,
-  },
-  locationAddress: {
-    fontSize: 15,
-    color: "#000",
-    lineHeight: 20,
-  },
-  locationNote: {
-    fontSize: 13,
-    color: "#666",
-    fontStyle: "italic",
-    marginTop: 4,
-  },
-  receiverInfo: {
-    fontSize: 13,
-    color: "#333",
-    marginTop: 4,
-  },
-  instructionsContainer: {
-    backgroundColor: "#FFF8E1",
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
-    marginBottom: 12,
-  },
-  instructionsLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#F57C00",
+  summaryLabel: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.medium,
+    color: Colors.textSoft,
     marginBottom: 6,
   },
-  instructionsText: {
-    fontSize: 14,
-    color: "#666",
-    lineHeight: 18,
+  summaryValue: {
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.bold,
+    color: Colors.text,
+    marginBottom: Spacing.xs + 2,
   },
-  acceptButton: {
-    backgroundColor: "#007AFF",
-    paddingVertical: 14,
-    borderRadius: 12,
+  activeBadgeRow: {
+    flexDirection: "row",
     alignItems: "center",
-    marginTop: 8,
+    marginTop: 4,
   },
-  acceptButtonDisabled: {
-    backgroundColor: "#B0B0B0",
+  activeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.success ?? "#22c55e",
+    marginRight: 6,
   },
-  acceptButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+  activeText: {
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.semibold,
+    color: Colors.success ?? "#22c55e",
   },
-  separator: {
-    height: 16,
+  errorCard: {
+    marginBottom: Spacing.md,
   },
-  emptyContainer: {
+  errorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  errorText: {
     flex: 1,
-    justifyContent: "center",
+    marginLeft: Spacing.sm,
+    fontSize: FontSize.sm,
+    color: Colors.danger,
+    lineHeight: 20,
+  },
+  taskCard: {
+    marginBottom: Spacing.sm + 4,
+  },
+  taskCardActive: {
+    borderWidth: 1,
+    borderColor: Colors.primarySoftStrong,
+  },
+  leadingIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
-    paddingHorizontal: 40,
+    justifyContent: "center",
+    backgroundColor: Colors.primarySoft,
   },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
+  leadingIconActive: {
+    backgroundColor: Colors.primary,
   },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#000",
-    marginBottom: 8,
+  footer: {
+    gap: Spacing.sm + 2,
   },
-  emptySubtitle: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-    marginBottom: 24,
-  },
-  refreshButton: {
-    backgroundColor: "#007AFF",
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 24,
-  },
-  refreshButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+  emptyState: {
+    marginTop: Spacing.sm,
   },
 });

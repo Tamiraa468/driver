@@ -1,4 +1,12 @@
 import { useFocusEffect } from "@react-navigation/native";
+import {
+  ClipboardList,
+  Clock,
+  Inbox,
+  MapPin,
+  Megaphone,
+  Store,
+} from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -10,6 +18,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import {
+  Colors,
+  FontSize,
+  Radius,
+  Shadow,
+  Spacing,
+} from "../../constants/design";
 import { useAuth } from "../../context/AuthContext";
 import {
   assignCourierToOrder,
@@ -79,16 +94,28 @@ const JobsScreen: React.FC = () => {
       <View style={styles.orderHeader}>
         <Text style={styles.orderId}>#{item.id}</Text>
         <View style={styles.readyBadge}>
-          <Text style={styles.readyText}>📢 Нийтлэгдсэн</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Megaphone size={14} color={Colors.primaryDark} strokeWidth={2} />
+            <Text style={styles.readyText}>Нийтлэгдсэн</Text>
+          </View>
         </View>
       </View>
 
       <View style={styles.orderDetails}>
-        <Text style={styles.shopName}>🏪 {item.supplierName}</Text>
-        <Text style={styles.deliveryAddress}>📍 {item.deliveryAddress}</Text>
-        <Text style={styles.orderDate}>
-          🕐 {new Date(item.createdAt).toLocaleTimeString("mn-MN")}
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Store size={16} color={Colors.text} strokeWidth={2} />
+          <Text style={styles.shopName}>{item.supplierName}</Text>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <MapPin size={16} color={Colors.textSoft} strokeWidth={2} />
+          <Text style={styles.deliveryAddress}>{item.deliveryAddress}</Text>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Clock size={14} color={Colors.textSoft} strokeWidth={2} />
+          <Text style={styles.orderDate}>
+            {new Date(item.createdAt).toLocaleTimeString("mn-MN")}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.orderFooter}>
@@ -104,7 +131,7 @@ const JobsScreen: React.FC = () => {
           disabled={acceptingOrderId === item.id}
         >
           {acceptingOrderId === item.id ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={Colors.accent} />
           ) : (
             <Text style={styles.acceptButtonText}>Хүлээн авах</Text>
           )}
@@ -116,7 +143,7 @@ const JobsScreen: React.FC = () => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={Colors.primary} />
         <Text style={styles.loadingText}>Ачаалж байна...</Text>
       </View>
     );
@@ -125,7 +152,10 @@ const JobsScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>📋 Боломжит захиалгууд</Text>
+        <Text style={styles.headerTitle}>
+          <ClipboardList size={20} color={Colors.text} strokeWidth={2} /> Боломжит
+          захиалгууд
+        </Text>
         <Text style={styles.headerSubtitle}>
           {orders.length} захиалга боломжтой
         </Text>
@@ -142,7 +172,7 @@ const JobsScreen: React.FC = () => {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyEmoji}>📭</Text>
+            <Inbox size={48} color={Colors.mutedLight} strokeWidth={2} />
             <Text style={styles.emptyTitle}>Захиалга байхгүй</Text>
             <Text style={styles.emptySubtitle}>
               Бэлэн болсон захиалга байхгүй байна
@@ -157,47 +187,49 @@ const JobsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: Colors.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: Colors.background,
   },
   loadingText: {
     marginTop: 10,
-    color: "#666",
+    color: Colors.textSoft,
   },
   header: {
-    backgroundColor: "#fff",
-    paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 16,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: Spacing.md,
+    paddingTop: 48,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: Colors.border,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: FontSize.xl,
     fontWeight: "bold",
-    color: "#1a1a1a",
+    color: Colors.text,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: FontSize.sm,
+    color: Colors.textSoft,
     marginTop: 4,
   },
   listContent: {
-    padding: 16,
+    padding: Spacing.md,
+    paddingTop: 20,
     flexGrow: 1,
   },
   orderCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: Colors.cardBg,
+    borderRadius: Radius.card,
+    padding: Spacing.md,
     marginBottom: 12,
-    boxShadow: "0px 1px 4px rgba(0, 0, 0, 0.1)",
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadow.card,
   },
   orderHeader: {
     flexDirection: "row",
@@ -206,40 +238,42 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   orderId: {
-    fontSize: 14,
+    fontSize: FontSize.sm,
     fontWeight: "600",
-    color: "#666",
+    color: Colors.textSoft,
   },
   readyBadge: {
-    backgroundColor: "#d4edda",
+    backgroundColor: Colors.primarySoft,
+    borderWidth: 1,
+    borderColor: Colors.border,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
   readyText: {
-    fontSize: 12,
+    fontSize: FontSize.xs,
     fontWeight: "600",
-    color: "#28a745",
+    color: Colors.primaryPressed,
   },
   orderDetails: {
     gap: 6,
     marginBottom: 12,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: Colors.border,
   },
   shopName: {
-    fontSize: 16,
+    fontSize: FontSize.base,
     fontWeight: "600",
-    color: "#1a1a1a",
+    color: Colors.text,
   },
   deliveryAddress: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: FontSize.sm,
+    color: Colors.textSoft,
   },
   orderDate: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: FontSize.sm,
+    color: Colors.textSoft,
   },
   orderFooter: {
     flexDirection: "row",
@@ -247,12 +281,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   totalPrice: {
-    fontSize: 18,
+    fontSize: FontSize.lg,
     fontWeight: "bold",
-    color: "#007AFF",
+    color: Colors.primaryPressed,
   },
   acceptButton: {
-    backgroundColor: "#28a745",
+    backgroundColor: Colors.primary,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
@@ -263,8 +297,8 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   acceptButtonText: {
-    color: "#fff",
-    fontSize: 14,
+    color: Colors.accent,
+    fontSize: FontSize.sm,
     fontWeight: "600",
   },
   emptyContainer: {
@@ -278,14 +312,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: FontSize.xl,
     fontWeight: "bold",
-    color: "#1a1a1a",
+    color: Colors.text,
     marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: FontSize.sm,
+    color: Colors.textSoft,
   },
 });
 

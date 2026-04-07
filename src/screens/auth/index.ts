@@ -8,4 +8,5 @@ export { default as BlockedAccountScreen } from "./BlockedAccountScreen";
 export { default as CourierLoginScreen } from "./CourierLoginScreen";
 export { default as CourierRegisterScreen } from "./CourierRegisterScreen";
 export { default as CourierWelcomeScreen } from "./CourierWelcomeScreen";
+export { default as KYCRequiredScreen } from "./KYCRequiredScreen";
 export { default as PendingApprovalScreen } from "./PendingApprovalScreen";

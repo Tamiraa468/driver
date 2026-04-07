@@ -8,13 +8,22 @@ export type UserRole =
   | "org_user";
 
 // Profile status for approval workflow
-export type ProfileStatus = "pending" | "approved" | "blocked";
+// pending       → just registered, needs KYC submission
+// kyc_submitted → KYC documents sent, waiting for admin review
+// approved      → admin approved, driver is active
+// blocked       → account suspended
+export type ProfileStatus =
+  | "pending"
+  | "kyc_submitted"
+  | "approved"
+  | "blocked";
 
 // Base user profile matching Supabase profiles table
 export interface UserProfile {
   id: string;
   email: string;
   full_name: string | null;
+  phone: string | null;
   role: UserRole;
   status: ProfileStatus;
   avatar_url?: string | null;
@@ -73,6 +82,16 @@ export interface SignInData {
 export interface ProfileUpdateData {
   full_name?: string;
   phone?: string;
+}
+
+// KYC submission data for courier verification
+export interface KYCSubmitData {
+  id_front_url: string;
+  id_back_url: string;
+  vehicle_registration_url?: string;
+  selfie_url?: string;
+  vehicle_type?: string;
+  license_plate?: string;
 }
 
 // Authentication result from sign up/sign in
