@@ -6,7 +6,8 @@
       "Bash(grep -r \"available_tasks\\\\|merchant_portal\\\\|org_id\\\\|organization\" /Users/mgt/Documents/diplomDelivery/delivery_diploma/supabase/migrations/*.sql)",
       "Bash(grep -n \"CREATE OR REPLACE FUNCTION public.claim_delivery_task\" /Users/mgt/Documents/diplomDelivery/delivery_diploma/supabase/migrations/*.sql)",
       "Bash(grep -n \"INSERT INTO.*courier_earnings\" /Users/mgt/Documents/diplomDelivery/delivery_diploma/supabase/migrations/*.sql)",
-      "Bash(grep -n \"profiles_status_check\\\\|status.*IN.*pending\\\\|status IN.*kyc_submitted\" /Users/mgt/Documents/diplomDelivery/delivery_diploma/supabase/migrations/*.sql)"
+      "Bash(grep -n \"profiles_status_check\\\\|status.*IN.*pending\\\\|status IN.*kyc_submitted\" /Users/mgt/Documents/diplomDelivery/delivery_diploma/supabase/migrations/*.sql)",
+      "Bash(supabase --version)"
     ]
   }
 }

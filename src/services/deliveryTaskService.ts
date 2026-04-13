@@ -174,18 +174,16 @@ export const claimDeliveryTask = async (
  */
 export const fetchCourierAssignedTasks = async (): Promise<DeliveryTask[]> => {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
 
-    if (!user) {
+    if (!session?.user) {
       throw new Error("Нэвтрээгүй байна");
     }
 
     const { data, error } = await supabase
       .from("delivery_tasks")
-      .select("*")
-      .eq("courier_id", user.id)
+      .select("id, order_id, status, delivery_fee, pickup_note, dropoff_note, receiver_name, receiver_phone, customer_email, note, assigned_at, picked_up_at, delivered_at, created_at, courier_id")
+      .eq("courier_id", session.user.id)
       .in("status", ["assigned", "picked_up", "delivered"])
       .order("assigned_at", { ascending: false });
 
@@ -213,7 +211,7 @@ export const subscribeToCourierTasks = (
     .on(
       "postgres_changes",
       {
-        event: "*",
+        event: "UPDATE",
         schema: "public",
         table: "delivery_tasks",
       },
@@ -255,19 +253,7 @@ export const updateTaskStatus = async (
       throw new Error(result.message);
     }
 
-    // Refetch the updated task to return full DeliveryTask object
-    const { data: task, error: fetchError } = await supabase
-      .from("delivery_tasks")
-      .select("*")
-      .eq("id", taskId)
-      .single();
-
-    if (fetchError) {
-      console.error("Error refetching task after status update:", fetchError);
-      throw fetchError;
-    }
-
-    return task as DeliveryTask;
+    return result as unknown as DeliveryTask;
   } catch (error) {
     console.error("updateTaskStatus error:", error);
     throw error;
@@ -279,18 +265,16 @@ export const updateTaskStatus = async (
  */
 export const fetchCourierTaskHistory = async (): Promise<DeliveryTask[]> => {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
 
-    if (!user) {
+    if (!session?.user) {
       throw new Error("Нэвтрээгүй байна");
     }
 
     const { data, error } = await supabase
       .from("delivery_tasks")
       .select("*")
-      .eq("courier_id", user.id)
+      .eq("courier_id", session.user.id)
       .eq("status", "delivered")
       .order("delivered_at", { ascending: false })
       .limit(50);
@@ -315,18 +299,16 @@ export const fetchCourierDashboardTasks = async (): Promise<
   CourierDashboardTask[]
 > => {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
 
-    if (!user) {
+    if (!session?.user) {
       throw new Error("Нэвтрээгүй байна");
     }
 
     const { data, error } = await supabase
       .from("delivery_tasks")
       .select("*")
-      .eq("courier_id", user.id)
+      .eq("courier_id", session.user.id)
       .order("updated_at", { ascending: false })
       .limit(100);
 
@@ -355,6 +337,7 @@ export const markDeliveredAndRequestOtp = async (
   taskId: string,
 ): Promise<{ success: boolean; warning?: string }> => {
   try {
+    // 1. Call RPC to update status → 'delivered' and generate OTP
     const { data, error } = await supabase.rpc("generate_epod_otp", {
       p_task_id: taskId,
     });
@@ -364,9 +347,34 @@ export const markDeliveredAndRequestOtp = async (
       throw new Error(error.message || "OTP үүсгэхэд алдаа гарлаа");
     }
 
-    const result = data as { otp?: string; email?: string } | null;
-    const warning = result?.email
-      ? `OTP код ${result.email} хаяг руу илгээгдэнэ`
+    const result = data as {
+      success?: boolean;
+      message?: string;
+      otp_plain?: string;
+      customer_email?: string;
+    } | null;
+
+    if (!result?.success) {
+      const msg = result?.message || "OTP үүсгэхэд алдаа гарлаа";
+      console.error("generate_epod_otp failed:", msg);
+      throw new Error(msg);
+    }
+
+    // 2. Send OTP email via Edge Function (fire-and-forget — don't await)
+    supabase.functions
+      .invoke("send-otp-email", {
+        body: {
+          task_id: taskId,
+          otp_plain: result.otp_plain,
+          customer_email: result.customer_email,
+        },
+      })
+      .catch((emailErr) =>
+        console.warn("OTP email send failed (non-blocking):", emailErr),
+      );
+
+    const warning = result.customer_email
+      ? `OTP код ${result.customer_email} хаяг руу илгээгдэнэ`
       : "OTP код үүсгэгдлээ";
 
     return { success: true, warning };
@@ -392,9 +400,34 @@ export const resendEpodOtp = async (
       throw new Error(error.message || "OTP дахин илгээхэд алдаа гарлаа");
     }
 
-    const result = data as { otp?: string; email?: string } | null;
-    const warning = result?.email
-      ? `OTP код ${result.email} хаяг руу дахин илгээгдлээ`
+    const result = data as {
+      success?: boolean;
+      message?: string;
+      otp_plain?: string;
+      customer_email?: string;
+    } | null;
+
+    if (!result?.success) {
+      const msg = result?.message || "OTP дахин илгээхэд алдаа гарлаа";
+      console.error("resend_epod_otp failed:", msg);
+      throw new Error(msg);
+    }
+
+    // Send email via Edge Function (fire-and-forget — don't await)
+    supabase.functions
+      .invoke("send-otp-email", {
+        body: {
+          task_id: taskId,
+          otp_plain: result.otp_plain,
+          customer_email: result.customer_email,
+        },
+      })
+      .catch((emailErr) =>
+        console.warn("OTP resend email failed (non-blocking):", emailErr),
+      );
+
+    const warning = result.customer_email
+      ? `OTP код ${result.customer_email} хаяг руу дахин илгээгдлээ`
       : "OTP код дахин үүсгэгдлээ";
 
     return { success: true, warning };
@@ -414,17 +447,33 @@ export const verifyEpodOtp = async (
   otp: string,
 ): Promise<{ success: boolean; message: string }> => {
   try {
-    const { data, error } = await supabase.rpc("verify_epod_otp", {
-      p_task_id: taskId,
-      p_otp: otp,
+    console.log("[verifyEpodOtp] calling RPC with taskId:", taskId);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    const res = await fetch(`${supabaseUrl}/rest/v1/rpc/verify_epod_otp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ p_task_id: taskId, p_otp: otp }),
     });
 
-    if (error) {
-      console.error("Error verifying ePOD OTP:", error);
-      throw error;
+    console.log("[verifyEpodOtp] fetch status:", res.status);
+    const result = await res.json();
+    console.log("[verifyEpodOtp] fetch response:", result);
+
+    if (!res.ok) {
+      throw new Error(result?.message || result?.error || `HTTP ${res.status}`);
     }
 
-    return data as { success: boolean; message: string };
+    return {
+      success: result?.success ?? false,
+      message: result?.message ?? "Хариу ирсэнгүй",
+    };
   } catch (error) {
     console.error("verifyEpodOtp error:", error);
     throw error;

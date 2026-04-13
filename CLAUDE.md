@@ -56,7 +56,7 @@ draft → published → assigned → picked_up → delivered → completed
 
 - `published → assigned`: courier calls `claim_delivery_task()` RPC (KYC + one-active guard)
 - `assigned → picked_up`: courier calls `update_task_status` RPC
-- `picked_up → delivered`: `markDeliveredAndRequestOtp()` → Edge Function sends OTP email
+- `picked_up → delivered`: `markDeliveredAndRequestOtp()` → `send-otp-email` Edge Function → calls `generate_epod_otp` RPC + sends OTP via Gmail/nodemailer
 - `delivered → completed`: `verify_epod_otp()` RPC → bcrypt check → inserts `courier_earnings`
 
 ### Key services
@@ -92,6 +92,20 @@ Environment variables: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KE
 
 Client configured in `src/config/supabaseClient.ts` with AsyncStorage persistence.
 
+### Edge Functions
+
+| Function | Purpose | Email transport |
+|----------|---------|----------------|
+| `send-otp-email` | OTP generation + email delivery | nodemailer + Gmail SMTP |
+
+Edge Function secrets (set via `supabase secrets set`):
+- `GMAIL_USER` — Gmail address for sending OTP
+- `GMAIL_APP_PASSWORD` — Gmail App Password
+
+Deploy: `supabase functions deploy send-otp-email`
+
+The app calls Edge Functions via `supabase.functions.invoke()`, not RPCs directly, for flows that require email (mark delivered, resend OTP).
+
 ## Conventions
 
 - Screens import from barrel files: `../../components/ui`, `../../services/deliveryTaskService`
@@ -115,6 +129,7 @@ Migrations are in `supabase/migrations/`. Push with `supabase db push`. Key RPCs
 | `resend_epod_otp(p_task_id)` | Regenerate + re-send OTP |
 
 Remote DB uses `pickup_note`/`dropoff_note` for addresses (not `pickup_address`/`dropoff_address`).
+Remote DB uses `customer_email` for receiver email (not `receiver_email`).
 
 ## Known gotchas
 
@@ -123,3 +138,5 @@ Remote DB uses `pickup_note`/`dropoff_note` for addresses (not `pickup_address`/
 - RLS policies on `delivery_tasks` cause infinite recursion if you do `.update()` directly — always use RPCs.
 - React 19 with compiler experiments enabled (`reactCompiler: true` in app.json).
 - NativeWind (Tailwind for RN) is configured but most styling uses `StyleSheet.create` with design constants.
+- pgcrypto extension lives in `extensions` schema on Supabase — RPC functions with `SET search_path = public` must use `extensions.crypt()` / `extensions.gen_salt()`, not unqualified calls.
+- `supabase db push` may fail if remote has migrations not in local — use `supabase migration repair` or run SQL directly via Dashboard SQL Editor.
