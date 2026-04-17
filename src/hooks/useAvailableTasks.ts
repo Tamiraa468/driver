@@ -108,11 +108,15 @@ export function useAvailableTasks(): UseAvailableTasksReturn {
     }
   }, []);
 
-  /** Direct table fallback (no location addresses) */
+  /** Direct table fallback — joins locations for pickup/dropoff addresses */
   const fetchDirect = async () => {
     const { data, error: tblErr } = await supabase
       .from("available_tasks")
-      .select("*")
+      .select(`
+        *,
+        pickup_location:locations!pickup_location_id(address_text, note, label),
+        dropoff_location:locations!dropoff_location_id(address_text, note, label)
+      `)
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -135,23 +139,34 @@ export function useAvailableTasks(): UseAvailableTasksReturn {
       return;
     }
 
-    const taskList: AvailableTask[] = (data || []).map((item: any) => ({
-      task_id: item.task_id ?? item.id,
-      order_id: item.order_id,
-      pickup_location_id: item.pickup_location_id,
-      dropoff_location_id: item.dropoff_location_id,
-      pickup_address: item.pickup_address ?? null,
-      dropoff_address: item.dropoff_address ?? null,
-      pickup_note: item.pickup_note,
-      dropoff_note: item.dropoff_note,
-      note: item.note,
-      package_value: item.package_value,
-      delivery_fee: item.delivery_fee,
-      suggested_fee: item.suggested_fee,
-      receiver_name: item.receiver_name,
-      receiver_phone: item.receiver_phone,
-      created_at: item.created_at,
-    }));
+    const taskList: AvailableTask[] = (data || []).map((item: any) => {
+      const pickupLoc = Array.isArray(item.pickup_location)
+        ? item.pickup_location[0]
+        : item.pickup_location;
+      const dropoffLoc = Array.isArray(item.dropoff_location)
+        ? item.dropoff_location[0]
+        : item.dropoff_location;
+      return {
+        task_id: item.task_id ?? item.id,
+        order_id: item.order_id,
+        pickup_location_id: item.pickup_location_id,
+        dropoff_location_id: item.dropoff_location_id,
+        pickup_address: pickupLoc?.address_text ?? item.pickup_address ?? null,
+        dropoff_address: dropoffLoc?.address_text ?? item.dropoff_address ?? null,
+        pickup_note: item.pickup_note,
+        dropoff_note: item.dropoff_note,
+        pickup_location: pickupLoc ?? null,
+        dropoff_location: dropoffLoc ?? null,
+        note: item.note,
+        package_value: item.package_value,
+        delivery_fee: item.delivery_fee,
+        suggested_fee: item.suggested_fee,
+        receiver_name: item.receiver_name,
+        receiver_phone: item.receiver_phone,
+        receiver_email: item.receiver_email ?? item.customer_email ?? null,
+        created_at: item.created_at,
+      };
+    });
 
     console.log(`${TAG} Direct query: ${taskList.length} tasks`);
     if (isMounted.current) {

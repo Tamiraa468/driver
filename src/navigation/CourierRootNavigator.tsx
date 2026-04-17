@@ -15,6 +15,7 @@ import {
   PendingApprovalScreen,
 } from "../screens/auth";
 import { ActiveTrackingScreen, DeliveryDetailsScreen, EPODVerificationScreen } from "../screens/courier";
+import RpcDebugScreen from "../screens/dev/RpcDebugScreen";
 import CourierAuthStack from "./CourierAuthStack";
 import CourierTabs from "./CourierTabs";
 
@@ -27,6 +28,7 @@ export type CourierRootStackParamList = {
   DeliveryDetails: { taskId?: string };
   ActiveTracking: { taskId: string };
   EPODVerification: { taskId: string };
+  RpcDebug: undefined;
 };
 
 const Stack = createNativeStackNavigator<CourierRootStackParamList>();
@@ -164,6 +166,16 @@ const CourierRootNavigator: React.FC = () => {
                   component={EPODVerificationScreen}
                   options={{ animation: "slide_from_right" }}
                 />
+                {__DEV__ && (
+                  <Stack.Screen
+                    name="RpcDebug"
+                    component={RpcDebugScreen}
+                    options={{
+                      animation: "slide_from_bottom",
+                      presentation: "modal",
+                    }}
+                  />
+                )}
               </>
             )}
           </>

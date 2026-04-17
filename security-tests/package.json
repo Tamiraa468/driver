@@ -1,0 +1,22 @@
+{
+  "name": "epod-security-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Diploma thesis security tests for ePOD OTP flow. STAGING ONLY.",
+  "scripts": {
+    "brute-force": "tsx brute_force.ts",
+    "brute-force:A": "tsx brute_force.ts --scenario=A",
+    "brute-force:B": "tsx brute_force.ts --scenario=B",
+    "brute-force:C": "tsx brute_force.ts --scenario=C",
+    "brute-force:all": "tsx brute_force.ts --scenario=all"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.9.0"
+  }
+}

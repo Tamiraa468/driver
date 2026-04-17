@@ -188,10 +188,17 @@ const DeliveryDetailsScreen: React.FC = () => {
 
     (async () => {
       try {
-        const { data, error: fetchError } = await supabase.rpc(
-          "get_task_detail",
-          { p_task_id: taskId },
-        );
+        const { data, error: fetchError } = await supabase
+          .from("delivery_tasks")
+          .select(`
+            id, status, delivery_fee,
+            pickup_note, dropoff_note, note, package_value,
+            receiver_name, receiver_phone, created_at,
+            pickup_location:locations!pickup_location_id(address_text, note, label),
+            dropoff_location:locations!dropoff_location_id(address_text, note, label)
+          `)
+          .eq("id", taskId)
+          .single();
 
         if (cancelled) {
           return;
@@ -201,26 +208,31 @@ const DeliveryDetailsScreen: React.FC = () => {
           throw fetchError;
         }
 
-        const rows = data as Array<Record<string, unknown>> | null;
-        if (!rows || rows.length === 0) {
+        if (!data) {
           throw new Error("not_found");
         }
 
-        const rpc = rows[0];
-        // RPC returns task_id instead of id, and uses pickup_note/dropoff_note
+        const r = data as any;
+        const pickupLoc = Array.isArray(r.pickup_location)
+          ? r.pickup_location[0]
+          : r.pickup_location;
+        const dropoffLoc = Array.isArray(r.dropoff_location)
+          ? r.dropoff_location[0]
+          : r.dropoff_location;
+
         const row: TaskDetailRow = {
-          id: (rpc.task_id as string) ?? taskId,
-          pickup_address: (rpc.pickup_note as string) ?? undefined,
-          dropoff_address: (rpc.dropoff_note as string) ?? undefined,
-          pickup_note: (rpc.pickup_note as string) ?? undefined,
-          dropoff_note: (rpc.dropoff_note as string) ?? undefined,
-          note: (rpc.note as string) ?? undefined,
-          package_value: rpc.package_value as number | undefined,
-          delivery_fee: (rpc.delivery_fee as number | string) ?? 0,
-          receiver_name: (rpc.receiver_name as string) ?? undefined,
-          receiver_phone: (rpc.receiver_phone as string) ?? undefined,
-          status: (rpc.status as string) ?? "published",
-          created_at: (rpc.created_at as string) ?? new Date().toISOString(),
+          id: r.id ?? taskId,
+          pickup_address: pickupLoc?.address_text ?? undefined,
+          dropoff_address: dropoffLoc?.address_text ?? undefined,
+          pickup_note: r.pickup_note ?? undefined,
+          dropoff_note: r.dropoff_note ?? undefined,
+          note: r.note ?? undefined,
+          package_value: r.package_value ?? undefined,
+          delivery_fee: r.delivery_fee ?? 0,
+          receiver_name: r.receiver_name ?? undefined,
+          receiver_phone: r.receiver_phone ?? undefined,
+          status: r.status ?? "published",
+          created_at: r.created_at ?? new Date().toISOString(),
         };
         setDetail(mapToTaskDetail(row));
       } catch (fetchError) {

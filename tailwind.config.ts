@@ -2,8 +2,6 @@
 module.exports = {
   content: [
     "./App.tsx",
-    "./CourierApp.tsx",
-    "./app/**/*.{js,jsx,ts,tsx}",
     "./src/**/*.{js,jsx,ts,tsx}",
     "./components/**/*.{js,jsx,ts,tsx}",
   ],

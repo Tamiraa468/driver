@@ -9,6 +9,13 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Colors } from "./src/constants/design";
 import { CourierAuthProvider } from "./src/context";
 import { CourierRootNavigator } from "./src/navigation";
+import { installTelemetry } from "./src/telemetry";
+
+// Install RPC telemetry before any Supabase call. Env-gated so production
+// builds can disable it by setting EXPO_PUBLIC_TELEMETRY=off.
+if (process.env.EXPO_PUBLIC_TELEMETRY !== "off") {
+  installTelemetry();
+}
 
 export default function App() {
   return (

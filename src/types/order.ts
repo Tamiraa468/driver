@@ -71,16 +71,25 @@ export interface CourierEarning {
   completedAt: string;
 }
 
+// Joined row from locations table (via pickup_location_id / dropoff_location_id FK)
+export interface TaskLocation {
+  address_text: string | null;
+  note: string | null;
+  label?: string | null;
+}
+
 // Available Task - from available_tasks table (using get_available_tasks RPC)
 export interface AvailableTask {
   task_id: string;
   order_id: string;
   pickup_location_id: string;
   dropoff_location_id: string;
-  pickup_address: string | null; // From locations join
-  dropoff_address: string | null; // From locations join
+  pickup_address: string | null; // From locations join (legacy, prefer pickup_location.address_text)
+  dropoff_address: string | null;
   pickup_note: string | null;
   dropoff_note: string | null;
+  pickup_location?: TaskLocation | null;
+  dropoff_location?: TaskLocation | null;
   note: string | null;
   package_value: number | null;
   delivery_fee: number;
@@ -109,32 +118,44 @@ export type CourierTaskEarningStatus =
   | "on_way";
 
 // Full Delivery Task - from delivery_tasks table
+// Remote schema uses pickup_note/dropoff_note (not pickup_address/dropoff_address)
+// and customer_email (not receiver_email). No merchant_id column on remote.
 export interface DeliveryTask {
   id: string;
-  order_id: string;
-  merchant_id: string;
+  order_id: string | null;
+  org_id?: string | null;
   courier_id: string | null;
-  pickup_address: string;
-  pickup_latitude: number | null;
-  pickup_longitude: number | null;
-  pickup_contact_name: string | null;
-  pickup_contact_phone: string | null;
-  dropoff_address: string;
-  dropoff_latitude: number | null;
-  dropoff_longitude: number | null;
-  dropoff_contact_name: string | null;
-  dropoff_contact_phone: string | null;
-  distance_km: number | null;
+  pickup_note: string | null;
+  pickup_latitude?: number | null;
+  pickup_longitude?: number | null;
+  pickup_contact_name?: string | null;
+  pickup_contact_phone?: string | null;
+  dropoff_note: string | null;
+  dropoff_latitude?: number | null;
+  dropoff_longitude?: number | null;
+  dropoff_contact_name?: string | null;
+  dropoff_contact_phone?: string | null;
+  distance_km?: number | null;
   delivery_fee: number;
-  receiver_email: string | null;
-  instructions: string | null;
+  customer_email?: string | null;
+  receiver_name?: string | null;
+  receiver_phone?: string | null;
+  note?: string | null;
+  instructions?: string | null;
+  pickup_location_id?: string | null;
+  dropoff_location_id?: string | null;
+  pickup_location?: TaskLocation | null;
+  dropoff_location?: TaskLocation | null;
   status: DeliveryTaskStatus;
-  published_at: string | null;
+  published_at?: string | null;
   assigned_at: string | null;
   picked_up_at: string | null;
   delivered_at: string | null;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
+  // Legacy/optional — some RPC responses include these as joined address fields
+  pickup_address?: string | null;
+  dropoff_address?: string | null;
 }
 
 export interface CourierDashboardTask {
@@ -148,6 +169,8 @@ export interface CourierDashboardTask {
   delivered_at: string | null;
   pickup_address: string;
   dropoff_address: string;
+  pickup_note?: string | null;
+  dropoff_note?: string | null;
   created_at: string;
   updated_at: string;
 }

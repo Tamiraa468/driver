@@ -42,3 +42,17 @@ app-example
 # generated native folders
 /ios
 /android
+
+# benchmark artefacts
+benchmarks/.env
+benchmarks/node_modules/
+benchmarks/results/
+benchmarks/load_test/jwts.json
+benchmarks/load_test/task.json
+analysis/out/
+analysis/__pycache__/
+
+# security-test artefacts
+security-tests/.env
+security-tests/node_modules/
+security-tests/results/

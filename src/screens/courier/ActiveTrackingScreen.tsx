@@ -165,7 +165,7 @@ const ActiveTrackingScreen: React.FC = () => {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScreenHeader
         title="Хүргэлт явагдаж байна"
-        subtitle={`Даалгавар #${task.id.slice(0, 8).toUpperCase()}`}
+        subtitle={`Даалгавар #${(task.id ?? "UNKNOWN").slice(0, 8).toUpperCase()}`}
         onBackPress={() => navigation.goBack()}
       />
 

@@ -1,0 +1,21 @@
+{
+  "name": "delivery-benchmarks",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Diploma thesis benchmarks for the courier Supabase backend. Separate package so it never ships with the mobile bundle.",
+  "scripts": {
+    "bench:get-available": "tsx benchmark_get_available_tasks.ts",
+    "seed": "tsx seed_tasks.ts",
+    "prepare-jwts": "tsx load_test/prepare_jwts.ts",
+    "teardown": "tsx load_test/teardown.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.9.0"
+  }
+}

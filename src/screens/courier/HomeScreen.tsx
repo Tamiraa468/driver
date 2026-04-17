@@ -45,14 +45,21 @@ interface JobPreview {
 }
 
 function buildJobPreview(task: AvailableTask): JobPreview {
+  const shortId = (task.task_id ?? "").slice(0, 8).toUpperCase() || "UNKNOWN";
   return {
     id: task.task_id,
-    title:
-      task.receiver_name ||
-      `Хүргэлт #${task.task_id.slice(0, 8).toUpperCase()}`,
+    title: task.receiver_name || `Хүргэлт #${shortId}`,
     price: `₮${task.delivery_fee.toLocaleString()}`,
-    pickup: task.pickup_address || task.pickup_note || "Авах цэгийн мэдээлэлгүй",
-    dropoff: task.dropoff_address || task.dropoff_note || "Хүргэх цэгийн мэдээлэлгүй",
+    pickup:
+      task.pickup_location?.address_text ||
+      task.pickup_address ||
+      task.pickup_note ||
+      "Авах цэгийн мэдээлэлгүй",
+    dropoff:
+      task.dropoff_location?.address_text ||
+      task.dropoff_address ||
+      task.dropoff_note ||
+      "Хүргэх цэгийн мэдээлэлгүй",
     postedAt: new Date(task.created_at).toLocaleString("mn-MN", {
       month: "short",
       day: "numeric",

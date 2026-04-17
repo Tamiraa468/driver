@@ -310,7 +310,7 @@ function buildHistoryItem(task: CourierDashboardTask): HistoryItemViewModel {
 
   return {
     id: task.id,
-    title: `Хүргэлт #${task.id.slice(0, 8).toUpperCase()}`,
+    title: `Хүргэлт #${(task.id ?? "UNKNOWN").slice(0, 8).toUpperCase()}`,
     subtitle,
     pickupSummary: shortenAddress(task.pickup_address),
     dropoffSummary: shortenAddress(task.dropoff_address),

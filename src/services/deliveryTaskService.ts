@@ -19,6 +19,12 @@ function toNumber(value: number | string | null | undefined): number {
   return 0;
 }
 
+interface JoinedLocationRow {
+  address_text: string | null;
+  note: string | null;
+  label?: string | null;
+}
+
 interface CourierDashboardTaskRow {
   id: string;
   courier_id: string | null;
@@ -31,15 +37,28 @@ interface CourierDashboardTaskRow {
   dropoff_address?: string | null;
   pickup_note?: string | null;
   dropoff_note?: string | null;
+  pickup_location?: JoinedLocationRow | JoinedLocationRow[] | null;
+  dropoff_location?: JoinedLocationRow | JoinedLocationRow[] | null;
   created_at: string;
   updated_at: string;
+}
+
+function firstJoined(
+  value: JoinedLocationRow | JoinedLocationRow[] | null | undefined,
+): JoinedLocationRow | null {
+  if (!value) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
 function mapDashboardTaskRow(
   item: CourierDashboardTaskRow,
 ): CourierDashboardTask {
-  const pickupAddress = item.pickup_address ?? item.pickup_note;
-  const dropoffAddress = item.dropoff_address ?? item.dropoff_note;
+  const pickupLoc = firstJoined(item.pickup_location);
+  const dropoffLoc = firstJoined(item.dropoff_location);
+  const pickupAddress =
+    pickupLoc?.address_text ?? item.pickup_address ?? item.pickup_note;
+  const dropoffAddress =
+    dropoffLoc?.address_text ?? item.dropoff_address ?? item.dropoff_note;
 
   return {
     id: item.id,
@@ -52,6 +71,8 @@ function mapDashboardTaskRow(
     delivered_at: item.delivered_at ?? null,
     pickup_address: pickupAddress ?? "Авах цэгийн мэдээлэлгүй",
     dropoff_address: dropoffAddress ?? "Хүргэх цэгийн мэдээлэлгүй",
+    pickup_note: item.pickup_note ?? null,
+    dropoff_note: item.dropoff_note ?? null,
     created_at: item.created_at,
     updated_at: item.updated_at,
   };
@@ -106,7 +127,9 @@ export const fetchAvailableTasksDirect = async (): Promise<AvailableTask[]> => {
         receiver_phone,
         receiver_email,
         created_at,
-        org_id
+        org_id,
+        pickup_location:locations!pickup_location_id(address_text, note, label),
+        dropoff_location:locations!dropoff_location_id(address_text, note, label)
       `,
       )
       .order("created_at", { ascending: false });
@@ -116,25 +139,34 @@ export const fetchAvailableTasksDirect = async (): Promise<AvailableTask[]> => {
       throw error;
     }
 
-    // Format the response to match AvailableTask interface
-    const tasks: AvailableTask[] = (data || []).map((item: any) => ({
-      task_id: item.task_id,
-      order_id: item.order_id,
-      pickup_location_id: item.pickup_location_id,
-      dropoff_location_id: item.dropoff_location_id,
-      pickup_address: null, // Not available in direct query
-      dropoff_address: null, // Not available in direct query
-      pickup_note: item.pickup_note,
-      dropoff_note: item.dropoff_note,
-      note: item.note,
-      package_value: item.package_value,
-      delivery_fee: item.delivery_fee,
-      suggested_fee: item.suggested_fee,
-      receiver_name: item.receiver_name,
-      receiver_phone: item.receiver_phone,
-      receiver_email: item.receiver_email,
-      created_at: item.created_at,
-    }));
+    const tasks: AvailableTask[] = (data || []).map((item: any) => {
+      const pickupLoc = Array.isArray(item.pickup_location)
+        ? item.pickup_location[0]
+        : item.pickup_location;
+      const dropoffLoc = Array.isArray(item.dropoff_location)
+        ? item.dropoff_location[0]
+        : item.dropoff_location;
+      return {
+        task_id: item.task_id,
+        order_id: item.order_id,
+        pickup_location_id: item.pickup_location_id,
+        dropoff_location_id: item.dropoff_location_id,
+        pickup_address: pickupLoc?.address_text ?? null,
+        dropoff_address: dropoffLoc?.address_text ?? null,
+        pickup_note: item.pickup_note,
+        dropoff_note: item.dropoff_note,
+        pickup_location: pickupLoc ?? null,
+        dropoff_location: dropoffLoc ?? null,
+        note: item.note,
+        package_value: item.package_value,
+        delivery_fee: item.delivery_fee,
+        suggested_fee: item.suggested_fee,
+        receiver_name: item.receiver_name,
+        receiver_phone: item.receiver_phone,
+        receiver_email: item.receiver_email ?? null,
+        created_at: item.created_at,
+      };
+    });
 
     return tasks;
   } catch (error) {
@@ -182,7 +214,15 @@ export const fetchCourierAssignedTasks = async (): Promise<DeliveryTask[]> => {
 
     const { data, error } = await supabase
       .from("delivery_tasks")
-      .select("id, order_id, status, delivery_fee, pickup_note, dropoff_note, receiver_name, receiver_phone, customer_email, note, assigned_at, picked_up_at, delivered_at, created_at, courier_id")
+      .select(`
+        id, order_id, status, delivery_fee,
+        pickup_note, dropoff_note,
+        receiver_name, receiver_phone, customer_email, note,
+        assigned_at, picked_up_at, delivered_at, created_at, courier_id,
+        pickup_location_id, dropoff_location_id,
+        pickup_location:locations!pickup_location_id(address_text, note, label),
+        dropoff_location:locations!dropoff_location_id(address_text, note, label)
+      `)
       .eq("courier_id", session.user.id)
       .in("status", ["assigned", "picked_up", "delivered"])
       .order("assigned_at", { ascending: false });
@@ -192,7 +232,17 @@ export const fetchCourierAssignedTasks = async (): Promise<DeliveryTask[]> => {
       throw error;
     }
 
-    return (data as DeliveryTask[]) || [];
+    // Supabase returns joined rows as arrays even for FK-based joins; flatten to single object
+    const rows = ((data as any[]) || []).map((row) => ({
+      ...row,
+      pickup_location: firstJoined(row.pickup_location),
+      dropoff_location: firstJoined(row.dropoff_location),
+      pickup_address:
+        firstJoined(row.pickup_location)?.address_text ?? row.pickup_address ?? null,
+      dropoff_address:
+        firstJoined(row.dropoff_location)?.address_text ?? row.dropoff_address ?? null,
+    }));
+    return rows as DeliveryTask[];
   } catch (error) {
     console.error("fetchCourierAssignedTasks error:", error);
     throw error;
@@ -273,7 +323,11 @@ export const fetchCourierTaskHistory = async (): Promise<DeliveryTask[]> => {
 
     const { data, error } = await supabase
       .from("delivery_tasks")
-      .select("*")
+      .select(`
+        *,
+        pickup_location:locations!pickup_location_id(address_text, note, label),
+        dropoff_location:locations!dropoff_location_id(address_text, note, label)
+      `)
       .eq("courier_id", session.user.id)
       .eq("status", "delivered")
       .order("delivered_at", { ascending: false })
@@ -307,7 +361,14 @@ export const fetchCourierDashboardTasks = async (): Promise<
 
     const { data, error } = await supabase
       .from("delivery_tasks")
-      .select("*")
+      .select(`
+        id, courier_id, status, delivery_fee,
+        assigned_at, picked_up_at, delivered_at,
+        pickup_note, dropoff_note,
+        created_at, updated_at,
+        pickup_location:locations!pickup_location_id(address_text, note, label),
+        dropoff_location:locations!dropoff_location_id(address_text, note, label)
+      `)
       .eq("courier_id", session.user.id)
       .order("updated_at", { ascending: false })
       .limit(100);

@@ -203,10 +203,23 @@ export default function AvailableTasksScreen() {
         renderItem={({ item }) => {
           const { label: statusLabel, tone: statusTone } = getStatusConfig(item.status);
           const active = isActiveStatus(item.status);
-          const orderId = item.order_id ?? item.id;
+          const orderId = (item.order_id ?? item.id) || "";
+          const orderShort = orderId.slice(0, 8).toUpperCase() || "UNKNOWN";
           const title =
+            item.receiver_name ||
             item.dropoff_contact_name ||
-            `Захиалга #${orderId.slice(0, 8).toUpperCase()}`;
+            `Захиалга #${orderShort}`;
+          const pickupAddress =
+            item.pickup_location?.address_text ||
+            item.pickup_address ||
+            item.pickup_note ||
+            "Хаягийн мэдээлэлгүй";
+          const dropoffAddress =
+            item.dropoff_location?.address_text ||
+            item.dropoff_address ||
+            item.dropoff_note ||
+            "Хаягийн мэдээлэлгүй";
+          const phone = item.receiver_phone || item.dropoff_contact_phone;
 
           const actionLabel =
             item.status === "assigned"
@@ -242,12 +255,10 @@ export default function AvailableTasksScreen() {
               subtitle={`Хуваарилагдсан: ${formatTime(item.assigned_at)}`}
               title={title}
               rows={[
-                { label: "Захиалга", value: `#${orderId.slice(0, 8).toUpperCase()}` },
-                { label: "Авах цэг", value: item.pickup_address || "Хаягийн мэдээлэлгүй" },
-                { label: "Хүргэх цэг", value: item.dropoff_address || "Хаягийн мэдээлэлгүй" },
-                ...(item.dropoff_contact_phone
-                  ? [{ label: "Утас", value: item.dropoff_contact_phone }]
-                  : []),
+                { label: "Захиалга", value: `#${orderShort}` },
+                { label: "Авах цэг", value: pickupAddress },
+                { label: "Хүргэх цэг", value: dropoffAddress },
+                ...(phone ? [{ label: "Утас", value: phone }] : []),
               ]}
               footer={
                 <PrimaryButton
